@@ -1,0 +1,35 @@
+// Prisma Schema para MVP Menina Mulher
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo para verificação de status e metadados do sistema
+model SystemStatus {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// Modelo inicial de Usuários / Participantes
+enum Role {
+  ADMIN
+  VOLUNTEER
+  PARTICIPANT
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  role      Role     @default(PARTICIPANT)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
