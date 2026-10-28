@@ -10,6 +10,9 @@ O projeto é organizado com separação clara de responsabilidades entre fronten
 
 ```
 MVP-MeninaMulher/
+├── .agents/
+│   └── skills/
+│       └── git-branch/        # Skill de padronização e automação de branches
 ├── backend/                   # API REST com Express.js e TypeScript
 │   ├── prisma/
 │   │   └── schema.prisma      # Modelos de dados e configuração do PostgreSQL
@@ -29,6 +32,7 @@ MVP-MeninaMulher/
 │   ├── vite.config.ts         # Configuração do Vite com proxy para /api -> :3001
 │   └── index.html             # HTML com fontes Google (Plus Jakarta Sans & Outfit)
 ├── package.json               # Orquestrador de scripts raiz (concurrently)
+├── CONTRIBUTING.md            # Guia de contribuição e fluxo de branches (Skill)
 └── README.md                  # Documentação do projeto
 ```
 
@@ -85,3 +89,9 @@ npm run dev
 - `GET /api/info` - Metadados e versão da API
 - `GET /api/health` - Verificação de integridade da API e conectividade com o PostgreSQL
 - `GET /api/users` - Exemplo de consulta com Prisma ORM
+
+---
+
+## 🤝 Como Contribuir e Padrão de Branches
+
+O fluxo de criação de branches (`<tipo>/<numero>-<slug-kebab-case>`), a hierarquia **Branch Geral (PBI/Epic) $\rightarrow$ Branch Específica (Task)** e o guia de uso da skill automatizada [`git-branch`](file:///.agents/skills/git-branch/SKILL.md) estão documentados em detalhes no arquivo [CONTRIBUTING.md](file:///CONTRIBUTING.md).
