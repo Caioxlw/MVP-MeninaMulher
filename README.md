@@ -1,6 +1,75 @@
-# MVP Menina Mulher 🌸
+# Menina Mulher: Catálogo Online e Pedidos via WhatsApp 🌸
 
-Ambiente de desenvolvimento full-stack moderno construído com **Express.js**, **React (Vite)**, **TypeScript** e **PostgreSQL** gerenciado via **Prisma ORM**.
+Projeto acadêmico de **Engenharia de Software do IFPE** desenvolvido com a finalidade de resolver um problema real da loja **Menina Mulher**, modernizando a experiência de compra das clientes e a gestão de estoque da loja.
+
+---
+
+## 📌 Contexto e Problema
+
+O problema central está na experiência de venda: a **Menina Mulher** não oferece às clientes um canal visual, simples e automatizado para conhecer as peças e realizar pedidos.
+
+| Aspecto | Cenário Atual |
+|---|---|
+| **Qual é o problema?** | A venda depende de conversa e conferência manual por mensagem. Faltam um catálogo com fotos e um pedido já organizado, limitando a experiência da cliente e a diferenciação da loja. |
+| **Onde acontece?** | No atendimento de vendas da loja, principalmente pelo WhatsApp e no contato com clientes pelo celular. |
+| **Quem é afetado?** | A empresária, que monta e confere os pedidos manualmente, e as clientes, que têm uma jornada de compra pouco interativa. |
+| **Como é resolvido hoje?** | Os pedidos são tratados por conversa e o estoque é controlado em planilhas separadas (ferramentas gratuitas testadas anteriormente apresentaram limitações). |
+| **Consequências** | Atendimento lento e repetitivo, risco de erro ao anotar tamanho, cor e quantidade, compra menos atrativa e falta de diferencial competitivo. |
+
+---
+
+## 👥 Usuários e Público-Alvo
+
+| Perfil | Quem é | Necessidades |
+|---|---|---|
+| **Usuário principal** | Clientes da loja (compram principalmente pelo celular) | Ver as peças com fotos, preço, tamanhos e cores; montar o pedido com poucos toques; saber o valor total antes de enviar; falar com a loja sem precisar repetir informações. |
+| **Usuário secundário** | Empresária, dona da loja | Manter o catálogo atualizado sem conhecimento técnico; receber pedidos completos e padronizados no WhatsApp; controlar o estoque no próprio sistema com baixa automática ao confirmar pedidos. |
+
+---
+
+## 🎯 Objetivos do Projeto
+
+### Objetivo Geral
+Desenvolver um site de catálogo (*landing page*) para a **Menina Mulher** que torne a compra mais fácil e interativa, contando com fotos, catálogo e carrinho de compras, enviando o pedido pronto para o WhatsApp da loja e integrando um controle de estoque simples no mesmo sistema.
+
+### Objetivos Específicos
+- Apresentar o catálogo com fotos, preços, tamanhos e cores de forma confortável no celular (*mobile-first*).
+- Permitir que a cliente monte o pedido em um carrinho com o valor total calculado automaticamente.
+- Gerar automaticamente a mensagem do pedido organizada e abrir o WhatsApp da loja com ela já preenchida.
+- Oferecer à empresária um painel administrativo simples para manter produtos, fotos, preços e estoque.
+- Garantir o controle de estoque no próprio sistema, realizando a baixa automática quando um pedido é confirmado, sem alterar a rotina de fechamento de vendas pelo WhatsApp.
+
+---
+
+## 💡 Proposta da Solução e Escopo do MVP
+
+A solução consiste em uma vitrine online pensada primeiro para o celular, funcionando como ponto de partida da venda. A cliente navega pelo catálogo, escolhe tamanho e cor, monta o carrinho e, com um toque, abre o WhatsApp da loja com o pedido padronizado (peças, tamanhos, cores, quantidades e total). Não há pagamento online: o fechamento da venda continua na conversa com a empresária.
+
+Por trás do site, um painel administrativo simples permite cadastrar produtos, fotos, preços e controlar o estoque de cada variação de tamanho e cor. Quando a empresária confirma no painel um pedido recebido no WhatsApp, o sistema debita as peças do estoque automaticamente e atualiza a disponibilidade exibida no site.
+
+### Funcionalidades Indispensáveis (Dentro do Escopo)
+1. **Catálogo online** com fotos, descrição, preço, tamanhos e cores.
+2. **Controle de estoque por tamanho e cor**, exibindo a disponibilidade no site (*disponível*, *últimas unidades* ou *esgotado*) e bloqueando opções esgotadas.
+3. **Carrinho de compras** com adição, remoção, ajuste de quantidade e cálculo do total.
+4. **Geração automática da mensagem do pedido** e redirecionamento para o WhatsApp da loja.
+5. **Registro e gestão de pedidos** (número único e status), permitindo confirmação ou cancelamento pela empresária com **baixa automática no estoque**.
+6. **Painel administrativo protegido por login** para cadastro, edição e ocultação de produtos, fotos, preços e estoque.
+7. **Guia de medidas e tamanhos** (conteúdo estático).
+8. **Página inicial (*landing page*)** com apresentação da loja e navegação por categorias em versão simplificada.
+
+### Fora do Escopo Inicial
+- Pagamento online.
+- Recursos avançados de estoque (relatórios, alertas de reposição, gestão de fornecedores e custo de peças).
+- Importação automática de planilhas de estoque (possível evolução futura).
+- Login e cadastro de clientes.
+- Cupons de desconto, avaliações de produtos, provador virtual e vídeos nos produtos.
+
+### Tecnologias Previstas
+- **Front-end**: React (Vite) com TypeScript.
+- **Back-end**: Node.js com Express.js e TypeScript.
+- **Banco de Dados Relacional**: PostgreSQL gerenciado via Prisma ORM.
+- **Armazenamento de Mídia**: Serviço em nuvem (ex.: S3 ou Cloudinary), armazenando apenas os links no banco.
+- **Integração WhatsApp**: Link de conversa (`wa.me`) com mensagem pré-preenchida.
 
 ---
 
