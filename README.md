@@ -41,10 +41,12 @@ MVP-MeninaMulher/
 ## 🚀 Como Executar
 
 ### 1. Pré-requisitos
+
 - **Node.js**: v18+ (testado na v24)
 - **PostgreSQL**: Serviço ativo localmente (já em execução na porta `5432` no Windows)
 
 ### 2. Configurar o Banco de Dados
+
 Abra o arquivo [`backend/.env`](file:///backend/.env) e ajuste a senha do seu usuário `postgres` local:
 
 ```env
@@ -53,11 +55,13 @@ DATABASE_URL="postgresql://postgres:SUA_SENHA@localhost:5432/mvp_menina_mulher?s
 ```
 
 Em seguida, crie o banco de dados e aplique as migrações iniciais do Prisma:
+
 ```bash
 npm run db:migrate
 ```
 
 ### 3. Iniciar o Ambiente de Desenvolvimento
+
 Execute na raiz do projeto para subir simultaneamente o **Backend** e o **Frontend**:
 
 ```bash
@@ -72,15 +76,18 @@ npm run dev
 
 ## 📜 Scripts Disponíveis na Raiz
 
-| Comando | Descrição |
-|---|---|
-| `npm run dev` | Inicia backend (porta 3001) e frontend (porta 5173) simultaneamente |
-| `npm run dev:backend` | Inicia apenas o servidor Express com `tsx watch` |
-| `npm run dev:frontend` | Inicia apenas o frontend React com `vite` |
-| `npm run build` | Compila TypeScript do backend (`tsc`) e faz o build do frontend (`vite build`) |
-| `npm run db:migrate` | Executa as migrações do Prisma (`prisma migrate dev`) |
-| `npm run db:generate` | Regenera o cliente Prisma tipado (`prisma generate`) |
-| `npm run db:studio` | Abre o painel visual do Prisma Studio no navegador |
+| Comando                | Descrição                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------ |
+| `npm run dev`          | Inicia backend (porta 3001) e frontend (porta 5173) simultaneamente            |
+| `npm run dev:backend`  | Inicia apenas o servidor Express com `tsx watch`                               |
+| `npm run dev:frontend` | Inicia apenas o frontend React com `vite`                                      |
+| `npm run build`        | Compila TypeScript do backend (`tsc`) e faz o build do frontend (`vite build`) |
+| `npm run lint`         | Executa análise estática (`oxlint`) no backend e no frontend                   |
+| `npm run format`       | Formata automaticamente os arquivos do repositório com Prettier                |
+| `npm run format:check` | Verifica se todos os arquivos seguem o padrão de formatação do Prettier        |
+| `npm run db:migrate`   | Executa as migrações do Prisma (`prisma migrate dev`)                          |
+| `npm run db:generate`  | Regenera o cliente Prisma tipado (`prisma generate`)                           |
+| `npm run db:studio`    | Abre o painel visual do Prisma Studio no navegador                             |
 
 ---
 

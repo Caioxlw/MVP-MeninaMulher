@@ -16,18 +16,19 @@ Todas as branches do repositório (exceto `main`) devem seguir o formato:
 
 Utilizamos os prefixos baseados no **Conventional Commits**:
 
-| Prefixo | Quando utilizar | Exemplo |
-|---|---|---|
-| `feat` | Nova funcionalidade de produto (catálogo, carrinho, painel, estoque) | `feat/20-listar-catalogo-produtos` |
-| `fix` | Correção de bug identificado durante o desenvolvimento | `fix/33-corrigir-baixa-estoque-simultanea` |
-| `hotfix` | Correção urgente aplicada diretamente a partir da `main` | `hotfix/55-corrigir-link-whatsapp` |
-| `docs` | Criação ou atualização exclusiva de documentação | `docs/1-contexto-projeto-readme` |
-| `refactor` | Melhoria interna de código sem alterar comportamento externo | `refactor/12-ajustar-relacoes-prisma` |
-| `chore` | Configurações de projeto, pacotes, templates e tooling | `chore/50-padronizar-fluxo-branches` |
-| `ci` | Configuração de pipelines e GitHub Actions (`.github/workflows/`) | `ci/47-configurar-workflow-build` |
-| `test` | Adição ou ajuste de testes automatizados | `test/34-testes-fluxo-completo` |
+| Prefixo    | Quando utilizar                                                      | Exemplo                                    |
+| ---------- | -------------------------------------------------------------------- | ------------------------------------------ |
+| `feat`     | Nova funcionalidade de produto (catálogo, carrinho, painel, estoque) | `feat/20-listar-catalogo-produtos`         |
+| `fix`      | Correção de bug identificado durante o desenvolvimento               | `fix/33-corrigir-baixa-estoque-simultanea` |
+| `hotfix`   | Correção urgente aplicada diretamente a partir da `main`             | `hotfix/55-corrigir-link-whatsapp`         |
+| `docs`     | Criação ou atualização exclusiva de documentação                     | `docs/1-contexto-projeto-readme`           |
+| `refactor` | Melhoria interna de código sem alterar comportamento externo         | `refactor/12-ajustar-relacoes-prisma`      |
+| `chore`    | Configurações de projeto, pacotes, templates e tooling               | `chore/50-padronizar-fluxo-branches`       |
+| `ci`       | Configuração de pipelines e GitHub Actions (`.github/workflows/`)    | `ci/47-configurar-workflow-build`          |
+| `test`     | Adição ou ajuste de testes automatizados                             | `test/34-testes-fluxo-completo`            |
 
 ### Regras de Validação
+
 - **Expressão Regular (Regex)**:
   ```regex
   ^(feat|fix|hotfix|docs|refactor|chore|ci|test)\/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$
@@ -67,13 +68,16 @@ flowchart LR
 O repositório já conta com a skill configurada em [`.agents/skills/git-branch/SKILL.md`](file:///.agents/skills/git-branch/SKILL.md). Nenhuma instalação manual é necessária — o Antigravity descobre a skill automaticamente ao abrir o projeto.
 
 ### Uso Automatizado pelo Chat (Recomendado)
+
 Basta pedir ao agente no chat do Antigravity mencionando o número da issue ou invocando `/git-branch`:
 
 > **Exemplos de prompt:**
-> - *"Vamos resolver a issue #50"*
-> - *"/git-branch crie a branch para a issue #43"*
+>
+> - _"Vamos resolver a issue #50"_
+> - _"/git-branch crie a branch para a issue #43"_
 
 **O que o agente fará automaticamente:**
+
 1. Consultará a issue e sua issue pai no GitHub para identificar o PBI/Epic correspondente.
 2. Verificará se a **Branch Geral** já existe localmente ou no `origin`.
 3. Caso não exista, atualizará a `main`, criará a **Branch Geral** e fará o `git push -u origin`.
