@@ -22,10 +22,16 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "db:migrate": "npm --prefix backend run prisma:migrate",
     "db:generate": "npm --prefix backend run prisma:generate",
-    "db:studio": "npm --prefix backend run prisma:studio"
+    "db:studio": "npm --prefix backend run prisma:studio",
+    "prepare": "husky"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.9.10"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write"
   }
 }

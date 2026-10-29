@@ -4,6 +4,6 @@ build/
 coverage/
 .agents/
 .github/
+.husky/
 package-lock.json
 *.env*
-
