@@ -87,7 +87,7 @@ jobs:
       - name: Generate Prisma Client & Apply Migrations
         run: |
           npm --prefix backend run prisma:generate
-          npx --prefix backend prisma migrate deploy
+          npm --prefix backend run prisma:deploy
 
       - name: Run Backend Tests
         run: npm run test:backend
