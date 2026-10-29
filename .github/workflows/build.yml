@@ -1,0 +1,105 @@
+name: Application Build
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - ".agents/**"
+      - ".vscode/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".agents/**"
+      - ".vscode/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
+
+jobs:
+  changes:
+    name: Detect Modified Scopes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check modified paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/build.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/build.yml'
+
+  build-backend:
+    name: Backend Build (TypeScript + Prisma)
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install backend dependencies
+        run: npm --prefix backend install
+
+      - name: Generate Prisma Client
+        run: npm --prefix backend run prisma:generate
+
+      - name: Build Backend (tsc)
+        run: npm run build:backend
+
+      - name: Validate Backend Build Artifacts
+        run: |
+          test -f backend/dist/server.js
+          test -f backend/dist/lib/prisma.js
+          echo "Backend build artifacts verified successfully."
+
+  build-frontend:
+    name: Frontend Build (TypeScript + Vite)
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend install
+
+      - name: Build Frontend (tsc + vite build)
+        run: npm run build:frontend
+
+      - name: Validate Frontend Build Artifacts
+        run: |
+          test -f frontend/dist/index.html
+          test -d frontend/dist/assets
+          echo "Frontend build artifacts verified successfully."
