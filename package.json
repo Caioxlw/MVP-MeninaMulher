@@ -18,8 +18,8 @@
     "lint:backend": "npm --prefix backend run lint",
     "lint:frontend": "npm --prefix frontend run lint",
     "lint": "npm run lint:backend && npm run lint:frontend",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "db:migrate": "npm --prefix backend run prisma:migrate",
     "db:generate": "npm --prefix backend run prisma:generate",
     "db:studio": "npm --prefix backend run prisma:studio",
@@ -32,6 +32,6 @@
     "prettier": "^3.9.10"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write"
+    "*": "prettier --write --ignore-unknown"
   }
 }
