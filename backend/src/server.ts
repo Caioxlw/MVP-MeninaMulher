@@ -76,10 +76,14 @@ app.get("/api/users", async (_req: Request, res: Response) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`===============================================`);
-  console.log(`🚀 MVP Menina Mulher - Backend API`);
-  console.log(`📡 URL: http://localhost:${PORT}`);
-  console.log(`🩺 Health: http://localhost:${PORT}/api/health`);
-  console.log(`===============================================`);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`===============================================`);
+    console.log(`🚀 MVP Menina Mulher - Backend API`);
+    console.log(`📡 URL: http://localhost:${PORT}`);
+    console.log(`🩺 Health: http://localhost:${PORT}/api/health`);
+    console.log(`===============================================`);
+  });
+}
+
+export { app };
