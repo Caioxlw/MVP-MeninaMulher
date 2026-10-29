@@ -1,0 +1,119 @@
+name: Continuous Deployment (OCI)
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".agents/**"
+      - ".vscode/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  pre-deploy-validation:
+    name: Safety Gate (Lint, Build & Tests)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_test_password
+          POSTGRES_DB: mvp_menina_mulher_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres_test_password@localhost:5432/mvp_menina_mulher_test?schema=public
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm run install:all
+
+      - name: Run Linter & Format Check
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Generate Prisma Client & Apply Test Migrations
+        run: |
+          npm run db:generate
+          npm run db:deploy
+
+      - name: Run Automated Tests
+        run: npm test
+
+      - name: Verify Production Build
+        run: npm run build
+
+  deploy-oci:
+    name: Deploy to OCI VM (Docker Compose)
+    needs: pre-deploy-validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH to Oracle Cloud Infrastructure
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          envs: POSTGRES_PASSWORD
+          script: |
+            set -e
+
+            if [ ! -d "$HOME/MVP-MeninaMulher/.git" ]; then
+              git clone https://github.com/Caioxlw/MVP-MeninaMulher.git "$HOME/MVP-MeninaMulher"
+            fi
+
+            cd "$HOME/MVP-MeninaMulher"
+            git fetch origin
+            git checkout ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+
+            if [ -n "$POSTGRES_PASSWORD" ]; then
+              echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" > .env
+            fi
+
+            docker compose up -d --build --remove-orphans
+
+            echo "Waiting for application health check..."
+            for i in $(seq 1 20); do
+              if curl -fsS http://localhost/api/health > /dev/null; then
+                echo "Health check passed! Application is live."
+                curl -s http://localhost/api/health
+                docker image prune -f
+                exit 0
+              fi
+              sleep 3
+            done
+
+            echo "Health check failed after 60 seconds!"
+            docker compose logs --tail=50
+            exit 1
