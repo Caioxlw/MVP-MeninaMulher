@@ -96,6 +96,8 @@ MVP-MeninaMulher/
 │   └── pull_request_template.md
 ├── .husky/                    # Git hooks (formatação automática pre-commit com lint-staged)
 ├── .vscode/                   # Configurações padronizadas do editor (formatOnSave)
+├── docs/
+│   └── documento-de-projeto.md # Documento oficial de escopo, requisitos (RF/RNF) e User Stories
 ├── backend/                   # API REST com Express.js, Prisma e Vitest
 │   ├── prisma/
 │   │   └── schema.prisma      # Modelos de dados e migrações do PostgreSQL
@@ -198,3 +200,5 @@ docker compose up -d --build
 ## 🤝 Como Contribuir e Padrão de Branches
 
 O fluxo de criação de branches (`<tipo>/<numero>-<slug-kebab-case>`), a hierarquia **Branch Geral (PBI/Epic) $\rightarrow$ Branch Específica (Task)** e o guia de uso da skill automatizada [`git-branch`](file:///.agents/skills/git-branch/SKILL.md) estão documentados em detalhes no arquivo [CONTRIBUTING.md](file:///CONTRIBUTING.md).
+
+Para consultar o levantamento completo de requisitos funcionais (`RF01–RF15`), requisitos não funcionais (`RNF01–RNF09`), personas, histórias de usuário (`US01–US12`) e matriz de riscos, acesse o [Documento de Projeto](file:///docs/documento-de-projeto.md).
