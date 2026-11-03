@@ -106,11 +106,14 @@ app.post("/api/upload", upload.single("image"), (req: Request, res: Response): v
   });
 });
 
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`===============================================`);
+    console.log(`🚀 MVP Menina Mulher - Backend API`);
+    console.log(`📡 URL: http://localhost:${PORT}`);
+    console.log(`🩺 Health: http://localhost:${PORT}/api/health`);
+    console.log(`===============================================`);
+  });
+}
 
-app.listen(PORT, () => {
-  console.log(`===============================================`);
-  console.log(`🚀 MVP Menina Mulher - Backend API`);
-  console.log(`📡 URL: http://localhost:${PORT}`);
-  console.log(`🩺 Health: http://localhost:${PORT}/api/health`);
-  console.log(`===============================================`);
-});
+export { app };

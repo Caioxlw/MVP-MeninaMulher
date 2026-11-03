@@ -151,3 +151,7 @@ vite.config.ts.timestamp-*
 # Uploads locais de midia
 uploads/
 backend/uploads/
+
+# SSH and private keys
+*.key
+*.pem

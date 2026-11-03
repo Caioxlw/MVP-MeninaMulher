@@ -1,0 +1,61 @@
+name: Security Analysis (SAST & Dependencies)
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - ".agents/**"
+      - ".vscode/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".agents/**"
+      - ".vscode/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/pull_request_template.md"
+  schedule:
+    - cron: "0 11 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Vulnerability Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Dependency Review (Fail on Critical Vulnerabilities)
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: critical
+
+  codeql-sast:
+    name: CodeQL SAST Analysis (TypeScript/JS)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+coverage/
+.agents/
+.github/
+.husky/
+package-lock.json
+*.env*
