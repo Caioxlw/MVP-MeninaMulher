@@ -148,6 +148,9 @@ vite.config.ts.timestamp-*
 # Turbo Repo
 .turbo
 
+# Uploads locais de midia
+uploads/
+backend/uploads/
 
 # SSH and private keys
 *.key
