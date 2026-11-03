@@ -17,12 +17,7 @@ const storage = multer.diskStorage({
 
 // 2. Filtro de Segurança: Apenas imagens permitidas
 const fileFilter: multer.Options["fileFilter"] = (_req, file, cb) => {
-  const allowedMimes = [
-    "image/jpeg",
-    "image/pjpeg",
-    "image/png",
-    "image/webp",
-  ];
+  const allowedMimes = ["image/jpeg", "image/pjpeg", "image/png", "image/webp"];
 
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);

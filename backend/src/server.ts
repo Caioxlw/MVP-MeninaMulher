@@ -5,7 +5,6 @@ import { prisma } from "./lib/prisma";
 import path from "path";
 import { upload } from "./lib/upload";
 
-
 dotenv.config();
 
 const app = express();
@@ -17,7 +16,6 @@ app.use(express.json());
 
 // Disponibiliza as imagens da pasta uploads publicamente
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
-
 
 // Endpoint de Informações da Aplicação
 app.get("/api/info", (_req: Request, res: Response) => {
