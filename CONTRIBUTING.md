@@ -109,10 +109,30 @@ git checkout -b chore/50-padronizar-fluxo-branches chore/11-configurar-repositor
 
 ---
 
-## 📝 5. Padrão de Commits
+## 📝 5. Padrão de Commits e Ciclo TDD no CI
 
 Utilize **Conventional Commits** em português e referencie a issue:
 
 ```bash
 git commit -m "chore(git): criar skill para padronizacao do fluxo de branches (closes #50)"
+```
+
+### 🧪 Suporte Nativo a TDD no GitHub Actions (`[red]`, `[green]`, `[refactor]`)
+
+Para facilitar o desenvolvimento orientado a testes (**TDD**) sem que o GitHub bloqueie a revisão da etapa inicial de testes, o workflow de CI (`.github/workflows/tests.yml`) reconhece tags no commit:
+
+| Tag no Commit    | Etapa TDD                                                  | Comportamento do CI (GitHub Actions)                                                                                                                   |
+| :--------------- | :--------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`[red]`**      | Você escreveu o teste, mas ainda não a implementação.      | **Aprova (Verde no GitHub)** somente se a suíte executar e **houver testes falhando** (reprova se todos passarem ou se houver erro de infraestrutura). |
+| **`[green]`**    | Você escreveu a implementação para fazer o teste passar.   | **Exige 100% dos testes passando.**                                                                                                                    |
+| **`[refactor]`** | Você refatorou/melhorou o código mantendo o comportamento. | **Exige 100% dos testes passando.**                                                                                                                    |
+
+> **🔒 Trava de Segurança da `main`**: Pull Requests que apontam para a branch `main` (ou pushes na `main`) **ignoram a tag `[red]`** e sempre exigem que 100% dos testes passem.
+
+**Exemplos de commits no ciclo TDD:**
+
+```bash
+git commit -m "test(db): adicionar testes de integridade do schema [red] (closes #72)"
+git commit -m "feat(db): implementar schema relacional no Prisma [green] (closes #70)"
+git commit -m "refactor(api): remover rota boilerplate de usuarios [refactor] (closes #76)"
 ```
