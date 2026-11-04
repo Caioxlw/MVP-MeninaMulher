@@ -20,14 +20,26 @@ on:
 
 jobs:
   changes:
-    name: Detect Modified Scopes
+    name: Detect Modified Scopes & TDD Mode
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      commit_message: ${{ steps.tdd.outputs.commit_message }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect TDD Commit Tag ([red], [green], [refactor])
+        id: tdd
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          MSG=$(git log -1 --pretty=%B "$TARGET_SHA" | tr '\n' ' ')
+          echo "commit_message=$MSG" >> "$GITHUB_OUTPUT"
+          echo "Detected commit message: $MSG"
 
       - name: Check modified paths
         uses: dorny/paths-filter@v3
@@ -46,7 +58,7 @@ jobs:
               - '.github/workflows/tests.yml'
 
   test-backend:
-    name: Backend Tests (Express + PostgreSQL)
+    name: Backend Tests (Express + PostgreSQL + TDD)
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -89,8 +101,19 @@ jobs:
           npm --prefix backend run prisma:generate
           npm --prefix backend run prisma:deploy
 
-      - name: Run Backend Tests
-        run: npm run test:backend
+      - name: Run Backend Tests with TDD Gate
+        working-directory: backend
+        env:
+          COMMIT_MESSAGE: ${{ needs.changes.outputs.commit_message }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          set +e
+          npx vitest run --coverage --reporter=default --reporter=json --outputFile=vitest-report.json
+          VITEST_EXIT=$?
+          set -e
+          npx tsx src/__tests__/setup/verify-tdd-ci.ts "$VITEST_EXIT"
 
   test-frontend:
     name: Frontend Tests (React + Vitest)
