@@ -27,6 +27,7 @@
     "db:migrate": "npm --prefix backend run prisma:migrate",
     "db:deploy": "npm --prefix backend run prisma:deploy",
     "db:generate": "npm --prefix backend run prisma:generate",
+    "db:seed": "npm --prefix backend run prisma:seed",
     "db:studio": "npm --prefix backend run prisma:studio",
     "prepare": "husky"
   },
