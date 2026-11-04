@@ -7,5 +7,12 @@ export default defineConfig({
     globalSetup: ["./src/__tests__/setup/global-setup.ts"],
     setupFiles: ["./src/__tests__/setup/setup-env.ts"],
     fileParallelism: false,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "lcov"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.ts"],
+      exclude: ["src/__tests__/**", "src/**/*.test.ts"],
+    },
   },
 });
