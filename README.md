@@ -97,7 +97,8 @@ MVP-MeninaMulher/
 ├── .husky/                    # Git hooks (formatação automática pre-commit com lint-staged)
 ├── .vscode/                   # Configurações padronizadas do editor (formatOnSave)
 ├── docs/
-│   └── documento-de-projeto.md # Documento oficial de escopo, requisitos (RF/RNF) e User Stories
+│   ├── documento-de-projeto.md # Documento oficial de escopo, requisitos (RF/RNF) e User Stories
+│   └── mer-banco-de-dados.md  # Diagrama Entidade-Relacionamento (MER) e regras do banco
 ├── backend/                   # API REST com Express.js, Prisma e Vitest
 │   ├── prisma/
 │   │   └── schema.prisma      # Modelos de dados e migrações do PostgreSQL
@@ -162,20 +163,22 @@ npm run dev
 
 ## 📜 Scripts Disponíveis na Raiz
 
-| Comando                | Descrição                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `npm run dev`          | Inicia backend (porta 3001) e frontend (porta 5173) simultaneamente            |
-| `npm run dev:backend`  | Inicia apenas o servidor Express com `tsx watch`                               |
-| `npm run dev:frontend` | Inicia apenas o frontend React com `vite`                                      |
-| `npm run build`        | Compila TypeScript do backend (`tsc`) e faz o build do frontend (`vite build`) |
-| `npm test`             | Executa a suíte de testes automatizados (`vitest`) no backend e no frontend    |
-| `npm run lint`         | Executa análise estática (`oxlint`) no backend e no frontend                   |
-| `npm run format`       | Formata automaticamente os arquivos do repositório com Prettier                |
-| `npm run format:check` | Verifica se todos os arquivos seguem o padrão de formatação do Prettier        |
-| `npm run db:migrate`   | Executa as migrações do Prisma em desenvolvimento (`prisma migrate dev`)       |
-| `npm run db:deploy`    | Aplica migrações pendentes em CI/Produção (`prisma migrate deploy`)            |
-| `npm run db:generate`  | Regenera o cliente Prisma tipado (`prisma generate`)                           |
-| `npm run db:studio`    | Abre o painel visual do Prisma Studio no navegador                             |
+| Comando                 | Descrição                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `npm run dev`           | Inicia backend (porta 3001) e frontend (porta 5173) simultaneamente            |
+| `npm run dev:backend`   | Inicia apenas o servidor Express com `tsx watch`                               |
+| `npm run dev:frontend`  | Inicia apenas o frontend React com `vite`                                      |
+| `npm run build`         | Compila TypeScript do backend (`tsc`) e faz o build do frontend (`vite build`) |
+| `npm test`              | Executa a suíte de testes automatizados (`vitest`) no backend e no frontend    |
+| `npm run test:coverage` | Executa os testes do backend gerando relatório de cobertura (`v8`)             |
+| `npm run lint`          | Executa análise estática (`oxlint`) no backend e no frontend                   |
+| `npm run format`        | Formata automaticamente os arquivos do repositório com Prettier                |
+| `npm run format:check`  | Verifica se todos os arquivos seguem o padrão de formatação do Prettier        |
+| `npm run db:migrate`    | Executa as migrações do Prisma em desenvolvimento (`prisma migrate dev`)       |
+| `npm run db:deploy`     | Aplica migrações pendentes em CI/Produção (`prisma migrate deploy`)            |
+| `npm run db:generate`   | Regenera o cliente Prisma tipado (`prisma generate`)                           |
+| `npm run db:seed`       | Popula o banco de dados com dados iniciais idempotentes para desenvolvimento   |
+| `npm run db:studio`     | Abre o painel visual do Prisma Studio no navegador                             |
 
 ---
 
@@ -201,4 +204,4 @@ docker compose up -d --build
 
 O fluxo de criação de branches (`<tipo>/<numero>-<slug-kebab-case>`), a hierarquia **Branch Geral (PBI/Epic) $\rightarrow$ Branch Específica (Task)** e o guia de uso da skill automatizada [`git-branch`](file:///.agents/skills/git-branch/SKILL.md) estão documentados em detalhes no arquivo [CONTRIBUTING.md](file:///CONTRIBUTING.md).
 
-Para consultar o levantamento completo de requisitos funcionais (`RF01–RF15`), requisitos não funcionais (`RNF01–RNF09`), personas, histórias de usuário (`US01–US12`) e matriz de riscos, acesse o [Documento de Projeto](file:///docs/documento-de-projeto.md).
+Para consultar o levantamento completo de requisitos funcionais (`RF01–RF15`), requisitos não funcionais (`RNF01–RNF09`), personas, histórias de usuário (`US01–US12`) e matriz de riscos, acesse o [Documento de Projeto](file:///docs/documento-de-projeto.md) e a documentação do [Diagrama Entidade-Relacionamento (MER)](file:///docs/mer-banco-de-dados.md).
