@@ -193,7 +193,7 @@ docker compose up -d --build
 
 - `GET /api/info` - Metadados e versão da API
 - `GET /api/health` - Verificação de integridade da API e conectividade com o PostgreSQL
-- `GET /api/users` - Exemplo de consulta com Prisma ORM
+- `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB)
 
 ---
 

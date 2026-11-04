@@ -64,23 +64,6 @@ app.get("/api/health", async (_req: Request, res: Response) => {
   });
 });
 
-// Endpoint de Usuários (Exemplo de consulta com Prisma)
-app.get("/api/users", async (_req: Request, res: Response) => {
-  try {
-    const users = await prisma.user.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    });
-    res.json({ success: true, count: users.length, users });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: "Falha ao consultar usuários no banco",
-      error: error.message,
-    });
-  }
-});
-
 // Endpoint da Task #13: Prova de Conceito de Armazenamento de Fotos
 app.post("/api/upload", upload.single("image"), (req: Request, res: Response): void => {
   if (!req.file) {

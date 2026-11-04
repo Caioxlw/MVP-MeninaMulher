@@ -27,12 +27,4 @@ describe("Backend API Endpoints", () => {
     expect(response.body.services.api.status).toBe("up");
     expect(response.body.services.database.status).toBe("connected");
   });
-
-  it("GET /api/users deve consultar a tabela de usuários no PostgreSQL com sucesso", async () => {
-    const response = await request(app).get("/api/users");
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(Array.isArray(response.body.users)).toBe(true);
-  });
 });
