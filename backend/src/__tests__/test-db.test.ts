@@ -61,6 +61,7 @@ describe("Infraestrutura de Banco de Testes Isolado", () => {
       data: {
         name: "Usuária Teste Isolamento",
         email: "isolamento@meninamulher.com",
+        passwordHash: "$2b$10$hashDeTesteIsolamento",
       },
     });
 
