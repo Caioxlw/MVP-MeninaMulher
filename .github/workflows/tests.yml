@@ -109,7 +109,7 @@ jobs:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           set +e
-          npx --prefix backend vitest run --reporter=default --reporter=json --outputFile=vitest-report.json
+          npx --prefix backend vitest run --coverage --reporter=default --reporter=json --outputFile=vitest-report.json
           VITEST_EXIT=$?
           set -e
           npx --prefix backend tsx src/__tests__/setup/verify-tdd-ci.ts "$VITEST_EXIT"
