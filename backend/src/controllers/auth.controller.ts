@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middlewares/auth.middleware";
 import { UserRepository } from "../repositories/user.repository";
-import { AuthError, AuthService } from "../services/auth.service";
+import { AuthError, AuthService, LoginInput } from "../services/auth.service";
 
 /**
  * Controller HTTP de autenticação (`POST /api/auth/login` e `GET /api/auth/me`).
@@ -20,10 +20,8 @@ export class AuthController {
 
   login = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const result = await this.authService.login({
-        email: req.body?.email,
-        password: req.body?.password,
-      });
+      const payload = (req.body ?? {}) as LoginInput;
+      const result = await this.authService.login(payload);
       res.status(200).json(result);
     } catch (error: unknown) {
       if (

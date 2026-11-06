@@ -7,6 +7,41 @@ export interface AuthenticatedRequest extends Request {
   user?: PublicUserDto;
 }
 
+async function resolveAuthenticatedAdmin(
+  headers: Request["headers"] | undefined,
+  userRepository: UserRepository,
+  jwtSecret?: string
+): Promise<PublicUserDto | null> {
+  const authHeader = headers?.authorization;
+
+  if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const payload = verifyJwt(token, jwtSecret);
+    const user = await userRepository.findById(payload.sub);
+
+    if (!user || !user.active || user.role !== "ADMIN") {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Cria o middleware de proteção de rotas administrativas (`requireAdminAuth`),
  * validando assinatura/expiração do token Bearer JWT e consultando o `UserRepository`
@@ -17,47 +52,17 @@ export function createRequireAdminAuth(
   jwtSecret?: string
 ) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
-    const authHeader = req.headers?.authorization;
+    const adminUser = await resolveAuthenticatedAdmin(req.headers, userRepository, jwtSecret);
 
-    if (!authHeader || typeof authHeader !== "string" || !authHeader.startsWith("Bearer ")) {
+    if (!adminUser) {
       res.status(401).json({
-        error: "Acesso não autorizado. Token Bearer ausente ou malformado.",
+        error: "Acesso não autorizado. Token ausente, inválido ou conta inativa.",
       });
       return;
     }
 
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (!token) {
-      res.status(401).json({
-        error: "Acesso não autorizado. Token Bearer vazio.",
-      });
-      return;
-    }
-
-    try {
-      const payload = verifyJwt(token, jwtSecret);
-      const user = await userRepository.findById(payload.sub);
-
-      if (!user || !user.active || user.role !== "ADMIN") {
-        res.status(401).json({
-          error: "Acesso não autorizado. Conta inexistente ou desativada.",
-        });
-        return;
-      }
-
-      req.user = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      };
-
-      next();
-    } catch {
-      res.status(401).json({
-        error: "Acesso não autorizado. Token inválido ou expirado.",
-      });
-    }
+    req.user = adminUser;
+    next();
   };
 }
 
