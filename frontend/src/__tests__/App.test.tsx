@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
@@ -31,6 +31,7 @@ describe("Task #113 — Tema Menina Mulher e Estrutura de Rotas (Loja e Painel)"
   });
 
   afterEach(() => {
+    cleanup();
     vi.unstubAllGlobals();
   });
 
