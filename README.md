@@ -103,9 +103,13 @@ MVP-MeninaMulher/
 │   ├── prisma/
 │   │   └── schema.prisma      # Modelos de dados e migrações do PostgreSQL
 │   ├── src/
-│   │   ├── __tests__/         # Testes de integração da API (Supertest + Vitest)
-│   │   ├── lib/
-│   │   │   └── prisma.ts      # Instância singleton do PrismaClient
+│   │   ├── __tests__/         # Testes unitários por camada e de integração (Supertest + Vitest)
+│   │   ├── controllers/       # Camada HTTP (controllers de entrada e saída)
+│   │   ├── lib/               # Utilitários e instância singleton do PrismaClient
+│   │   ├── middlewares/       # Middlewares Express (ex.: requireAdminAuth)
+│   │   ├── repositories/      # Camada de acesso a dados (isolamento 100% do PrismaClient)
+│   │   ├── routes/            # Definição de rotas Express
+│   │   ├── services/          # Camada de regras de negócio e validações de domínio
 │   │   └── server.ts          # Servidor Express e endpoints da API
 │   ├── Dockerfile             # Build multi-stage de produção do Backend
 │   └── tsconfig.json          # Configuração TypeScript do Node
@@ -132,12 +136,13 @@ MVP-MeninaMulher/
 - **Node.js**: v18+ (recomendado v22+)
 - **PostgreSQL 18**: Serviço local ativo na porta `5432` **OU** **Docker** (`docker compose up -d postgres`)
 
-### 2. Configurar o Banco de Dados
+### 2. Configurar o Banco de Dados e Variáveis de Ambiente
 
-Abra o arquivo [`backend/.env`](file:///backend/.env) (crie a partir de [`backend/.env.example`](file:///backend/.env.example) se necessário) e ajuste a senha do seu usuário `postgres`:
+Abra o arquivo [`backend/.env`](file:///backend/.env) (crie a partir de [`backend/.env.example`](file:///backend/.env.example) se necessário) e ajuste o segredo JWT e a senha do seu usuário `postgres`:
 
 ```env
 PORT=3001
+JWT_SECRET="troque-este-segredo-jwt-em-producao"
 DATABASE_URL="postgresql://postgres:SUA_SENHA@localhost:5432/mvp_menina_mulher?schema=public"
 ```
 
@@ -194,9 +199,11 @@ docker compose up -d --build
 
 ## 🔌 Endpoints da API
 
-- `GET /api/info` - Metadados e versão da API
-- `GET /api/health` - Verificação de integridade da API e conectividade com o PostgreSQL
-- `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB)
+- `GET /api/info` - Metadados e versão da API (Público)
+- `GET /api/health` - Verificação de integridade da API e conectividade com o PostgreSQL (Público)
+- `POST /api/auth/login` - Autentica a empresária (`email` e `password`), valida o hash `scrypt` em tempo constante e retorna `{ token, user: { id, name, email, role } }` sem expor `passwordHash` (Público — `RF11`, `RNF05`)
+- `GET /api/auth/me` - Valida o header `Authorization: Bearer <token>`, confirma que a conta segue ativa no banco e retorna os dados públicos da empresária (`ADMIN` — `RF11`)
+- `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`)
 
 ---
 
