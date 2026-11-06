@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import { prisma } from "./lib/prisma";
 import path from "path";
 import { upload } from "./lib/upload";
+import { requireAdminAuth } from "./middlewares/auth.middleware";
+import { authRoutes } from "./routes/auth.routes";
 
 dotenv.config();
 
@@ -16,6 +18,9 @@ app.use(express.json());
 
 // Disponibiliza as imagens da pasta uploads publicamente
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+
+// Rotas de Autenticação da Empresária (PBI #3 - RF11, RNF05)
+app.use("/api/auth", authRoutes);
 
 // Endpoint de Informações da Aplicação
 app.get("/api/info", (_req: Request, res: Response) => {
@@ -64,28 +69,33 @@ app.get("/api/health", async (_req: Request, res: Response) => {
   });
 });
 
-// Endpoint da Task #13: Prova de Conceito de Armazenamento de Fotos
-app.post("/api/upload", upload.single("image"), (req: Request, res: Response): void => {
-  if (!req.file) {
-    res.status(400).json({ success: false, message: "Nenhum arquivo enviado." });
-    return;
+// Endpoint da Task #13: Prova de Conceito de Armazenamento de Fotos (protegido por ADMIN - RF11)
+app.post(
+  "/api/upload",
+  requireAdminAuth,
+  upload.single("image"),
+  (req: Request, res: Response): void => {
+    if (!req.file) {
+      res.status(400).json({ success: false, message: "Nenhum arquivo enviado." });
+      return;
+    }
+
+    // Monta a URL pública dinâmica da imagem salva
+    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+    res.status(201).json({
+      success: true,
+      message: "Foto enviada com sucesso!",
+      file: {
+        originalName: req.file.originalname,
+        fileName: req.file.filename,
+        size: req.file.size,
+        mimetype: req.file.mimetype,
+        url: fileUrl, // <--- Link público que será usado no produto
+      },
+    });
   }
-
-  // Monta a URL pública dinâmica da imagem salva
-  const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-
-  res.status(201).json({
-    success: true,
-    message: "Foto enviada com sucesso!",
-    file: {
-      originalName: req.file.originalname,
-      fileName: req.file.filename,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-      url: fileUrl, // <--- Link público que será usado no produto
-    },
-  });
-});
+);
 
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
