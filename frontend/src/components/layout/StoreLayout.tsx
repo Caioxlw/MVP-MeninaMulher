@@ -52,11 +52,11 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-brand-bg text-text-primary flex flex-col">
-      {/* Cabeçalho da Loja (Mobile-First + Desktop >= 1024px) */}
+      {/* Cabeçalho da Loja (Mobile-First + Desktop >= 768px/1024px) */}
       <header className="sticky top-0 z-30 bg-brand-surface border-b border-brand-border">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 lg:h-20 flex items-center justify-between gap-3">
-          {/* Botão Menu Gaveta (Mobile < 1024px) */}
-          <div className="flex items-center gap-2 lg:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-20 flex items-center justify-between gap-3">
+          {/* Botão Menu Gaveta (Mobile < 768px) */}
+          <div className="flex items-center gap-2 md:hidden">
             <button
               type="button"
               onClick={() => setIsDrawerOpen(true)}
@@ -71,7 +71,7 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
           {/* Logo Menina Mulher */}
           <Link
             to={ROUTES.store.home}
-            className="touch-target inline-flex flex-col items-center lg:items-start justify-center no-underline"
+            className="touch-target inline-flex flex-col items-center md:items-start justify-center no-underline shrink-0"
           >
             <span className="font-editorial text-xl lg:text-2xl font-bold tracking-tight text-brand-plum leading-none">
               MM <span className="text-brand-primary">Menina Mulher</span>
@@ -81,10 +81,10 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
             </span>
           </Link>
 
-          {/* Navegação Horizontal Desktop (>= 1024px) */}
+          {/* Navegação Horizontal Desktop (>= 768px) */}
           <nav
             aria-label="Navegação principal da loja"
-            className="hidden lg:flex items-center gap-1"
+            className="hidden md:flex items-center gap-1 lg:gap-2"
           >
             {DESKTOP_CATEGORIES.map((item) => {
               const active = isActivePath(item.path);
@@ -93,7 +93,7 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
                   key={item.path}
                   to={item.path}
                   aria-current={active ? "page" : undefined}
-                  className={`touch-target inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-medium no-underline transition-colors ${
+                  className={`touch-target inline-flex items-center px-3 lg:px-3.5 py-2 rounded-xl text-sm font-medium no-underline transition-colors ${
                     active
                       ? "text-brand-primary font-semibold border-b-2 border-brand-primary rounded-b-none"
                       : "text-text-secondary hover:text-brand-plum hover:bg-brand-soft"
@@ -106,13 +106,13 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
           </nav>
 
           {/* Ações à Direita: Busca, Favoritos e Sacola com Contador */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Barra de Busca Desktop */}
             <form
               role="search"
               aria-label="Buscar produtos na loja"
               onSubmit={(e) => e.preventDefault()}
-              className="hidden lg:flex items-center bg-brand-soft border border-brand-border rounded-full px-3.5 min-h-[44px] w-64 focus-within:border-brand-primary"
+              className="hidden md:flex items-center bg-brand-soft border border-brand-border rounded-full px-3.5 min-h-[44px] w-48 lg:w-64 focus-within:border-brand-primary"
             >
               <Search className="w-4 h-4 text-brand-muted shrink-0 mr-2" />
               <input
@@ -131,7 +131,7 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
               onClick={() => setIsMobileSearchOpen((prev) => !prev)}
               aria-label="Alternar barra de busca"
               aria-expanded={isMobileSearchOpen}
-              className="touch-target lg:hidden inline-flex items-center justify-center rounded-xl text-brand-plum hover:bg-brand-soft transition-colors"
+              className="touch-target md:hidden inline-flex items-center justify-center rounded-xl text-brand-plum hover:bg-brand-soft transition-colors"
             >
               <Search className="w-5 h-5" />
             </button>
@@ -172,7 +172,7 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
 
         {/* Barra de Busca Expansível Mobile */}
         {isMobileSearchOpen && (
-          <div className="lg:hidden px-4 pb-3 bg-brand-surface border-t border-brand-border">
+          <div className="md:hidden px-4 pb-3 bg-brand-surface border-t border-brand-border">
             <form
               role="search"
               onSubmit={(e) => e.preventDefault()}
@@ -195,7 +195,7 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
       {/* Menu Gaveta Mobile (C02 Menu Gaveta Mobile) */}
       {isDrawerOpen && (
         <div
-          className="fixed inset-0 z-50 lg:hidden flex"
+          className="fixed inset-0 z-50 md:hidden flex"
           role="dialog"
           aria-modal="true"
           aria-label="Menu de navegação da loja"
@@ -308,14 +308,14 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
       )}
 
       {/* Conteúdo Principal da Rota */}
-      <main className="flex-1 w-full pb-20 lg:pb-0">{children ?? <Outlet />}</main>
+      <main className="flex-1 w-full pb-20 md:pb-0">{children ?? <Outlet />}</main>
 
       {/* Rodapé da Loja (StoreFooter) */}
       <footer
         aria-label="Rodapé da loja"
-        className="bg-brand-soft border-t border-brand-border text-text-secondary pb-20 lg:pb-0"
+        className="bg-brand-soft border-t border-brand-border text-text-secondary pb-20 md:pb-0"
       >
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Coluna 1: Identidade */}
           <div>
             <p className="font-editorial text-xl font-bold text-brand-plum mb-2">
@@ -420,7 +420,7 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
           </div>
         </div>
 
-        <div className="border-t border-brand-border py-4 px-4 lg:px-8">
+        <div className="border-t border-brand-border py-4 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-brand-muted">
             <p>© 2026 Menina Mulher Lingerie. Feito com delicadeza e amor próprio.</p>
             <span className="inline-flex items-center gap-1.5 font-medium text-brand-plum">
@@ -431,10 +431,10 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
         </div>
       </footer>
 
-      {/* Navegação Inferior Mobile da Loja (< 1024px) */}
+      {/* Navegação Inferior Mobile da Loja (< 768px) */}
       <nav
         aria-label="Navegação inferior mobile da loja"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-brand-surface border-t border-brand-border px-4 py-1 flex items-center justify-around"
+        className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-brand-surface border-t border-brand-border px-4 py-1 flex items-center justify-around"
       >
         <Link
           to={ROUTES.store.home}
