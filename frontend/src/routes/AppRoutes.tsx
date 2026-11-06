@@ -1,7 +1,18 @@
+import { ClipboardCheck, Mail, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AdminLayout } from "../components/layout/AdminLayout";
 import { StoreLayout } from "../components/layout/StoreLayout";
+import {
+  Alert,
+  Badge,
+  Button,
+  EmptyState,
+  Input,
+  Modal,
+  ProductCard,
+  type ProductStockStatus,
+} from "../components/ui";
 import {
   ADMIN_ROUTE_DESCRIPTORS,
   ROUTES,
@@ -21,57 +32,73 @@ interface HealthResponse {
   };
 }
 
-const PREVIEW_PRODUCTS = [
+const PREVIEW_PRODUCTS: Array<{
+  id: string;
+  category: string;
+  name: string;
+  subtitle: string;
+  price: number;
+  installmentText: string;
+  sizes: string[];
+  colors: string[];
+  badgeText?: string;
+  stockStatus: ProductStockStatus;
+}> = [
   {
     id: "sutia-renda-noir",
     category: "Partes de Cima",
     name: "Sutiã Renda Noir",
     subtitle: "Toque aveludado e suave",
-    price: "R$ 119,90",
-    installment: "3x s/ juros",
-    sizes: "Tam: P, M, G",
-    badge: "Destaque",
-    available: true,
+    price: 119.9,
+    installmentText: "3x s/ juros",
+    sizes: ["P", "M", "G"],
+    colors: ["#23101B", "#D1025A", "#F5CCD0"],
+    badgeText: "Destaque",
+    stockStatus: "available",
   },
   {
     id: "calcinha-algodao-doce",
     category: "Partes de Baixo",
     name: "Calcinha Algodão Doce",
     subtitle: "Respirável e diária",
-    price: "R$ 39,90",
-    installment: "À vista",
-    sizes: "Tam: M, G",
-    badge: "100% Algodão",
-    available: true,
+    price: 39.9,
+    installmentText: "À vista",
+    sizes: ["M", "G"],
+    colors: ["#F5CCD0", "#FFFFFF"],
+    badgeText: "100% Algodão",
+    stockStatus: "available",
   },
   {
     id: "conjunto-microfibra-nude",
     category: "Conjuntos",
     name: "Conjunto Microfibra",
     subtitle: "Tecido toque de seda",
-    price: "R$ 149,90",
-    installment: "4x s/ juros",
-    sizes: "Tam: P, M, G",
-    badge: "Últimas unidades",
-    available: true,
+    price: 149.9,
+    installmentText: "4x s/ juros",
+    sizes: ["P", "M", "G"],
+    colors: ["#E5C3B5", "#520139"],
+    stockStatus: "low_stock",
   },
   {
     id: "body-renda-floral",
     category: "Partes de Cima",
     name: "Body Renda",
     subtitle: "Decote costas cavadas",
-    price: "R$ 99,90",
-    installment: "Consulte reposição",
-    sizes: "Tam: P, M",
-    badge: "Esgotado",
-    available: false,
+    price: 99.9,
+    installmentText: "Consulte reposição",
+    sizes: ["P", "M"],
+    colors: ["#23101B"],
+    stockStatus: "out_of_stock",
   },
 ];
 
 function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) {
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
+  const [filterText, setFilterText] = useState("");
 
   useEffect(() => {
     if (location.pathname !== ROUTES.store.home) return;
@@ -91,6 +118,16 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
 
   const isConnected = health?.services?.database?.status === "connected";
 
+  const toggleFavorite = (productId: string) => {
+    setFavorites((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+  };
+
+  const filteredProducts = PREVIEW_PRODUCTS.filter((p) =>
+    p.name.toLowerCase().includes(filterText.trim().toLowerCase())
+  );
+
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10 space-y-8 lg:space-y-12">
       {/* Banner / Hero Responsivo: 1 coluna no Mobile, 2 colunas (7 + 5) no Desktop */}
@@ -98,13 +135,11 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
           <div className="lg:col-span-7 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-blush text-brand-plum">
-                Loja Pública • Rota: {location.pathname}
-              </span>
+              <Badge variant="blush">Loja Pública • Rota: {location.pathname}</Badge>
               {location.pathname === ROUTES.store.home && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-status-success-bg text-status-success">
+                <Badge variant="available" dot>
                   {isConnected ? "Conectado" : "Verificando API"}
-                </span>
+                </Badge>
               )}
             </div>
 
@@ -122,12 +157,12 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
             )}
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <Link to={ROUTES.store.catalog} className="btn btn-primary text-sm">
+              <Button variant="primary" onClick={() => navigate(ROUTES.store.catalog)}>
                 Ver Catálogo Completo
-              </Link>
-              <Link to={ROUTES.store.sizeGuide} className="btn btn-secondary text-sm">
+              </Button>
+              <Button variant="secondary" onClick={() => navigate(ROUTES.store.sizeGuide)}>
                 Guia de Medidas
-              </Link>
+              </Button>
             </div>
 
             {/* Pílulas de diferencial (visíveis em Grid Responsivo 1 col -> 3 cols) */}
@@ -151,9 +186,9 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
           <div className="lg:col-span-5">
             <div className="bg-brand-soft border border-brand-border rounded-2xl p-6 lg:p-8 flex flex-col justify-between min-h-[220px] lg:min-h-[280px]">
               <div>
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-brand-blush text-brand-primary mb-3">
+                <Badge variant="blush" className="mb-3">
                   Sensualidade & Cuidado
-                </span>
+                </Badge>
                 <h2 className="font-editorial text-xl lg:text-2xl font-bold text-brand-plum mb-2">
                   Feito para abraçar a sua essência.
                 </h2>
@@ -164,18 +199,16 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               </div>
               <div className="mt-4 pt-4 border-t border-brand-border flex items-center justify-between text-xs">
                 <span className="font-semibold text-brand-plum">Rendas Nobres & Microfibra</span>
-                <span className="px-2.5 py-1 rounded-full bg-brand-surface text-brand-primary font-bold">
-                  100% Brasil
-                </span>
+                <Badge variant="brand">100% Brasil</Badge>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Grade Responsiva do Catálogo: 2 colunas no Mobile (360px), 3 no Tablet, 4 no Desktop */}
+      {/* Grade Responsiva do Catálogo com ProductCard, Input e EmptyState */}
       <section aria-label="Prévia da grade responsiva da loja" className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-brand-primary block">
               Catálogo Selecionado
@@ -184,61 +217,47 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               Explore Nossas Peças
             </h2>
           </div>
-          <p className="text-xs text-brand-muted">
-            Grade responsiva: 2 colunas no celular • 4 colunas no computador
-          </p>
+
+          <div className="w-full md:w-72">
+            <Input
+              label="Filtrar vitrine"
+              placeholder="Ex.: Sutiã, Calcinha..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              leftIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
-          {PREVIEW_PRODUCTS.map((product) => (
-            <article
-              key={product.id}
-              className="bg-brand-surface border border-brand-border rounded-2xl p-3 sm:p-4 flex flex-col justify-between shadow-xs"
-            >
-              <div>
-                <div className="aspect-3/4 rounded-xl bg-brand-soft border border-brand-border p-2.5 flex flex-col justify-between mb-3">
-                  <div className="flex items-center justify-between gap-1">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        product.available
-                          ? "bg-brand-primary text-white"
-                          : "bg-brand-border text-brand-muted"
-                      }`}
-                    >
-                      {product.badge}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-medium text-brand-muted">{product.sizes}</span>
-                </div>
-
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
-                  {product.category}
-                </p>
-                <h3 className="font-editorial text-sm sm:text-base font-bold text-brand-plum leading-snug">
-                  {product.name}
-                </h3>
-                <p className="text-xs text-text-secondary mb-2">{product.subtitle}</p>
-              </div>
-
-              <div className="pt-2 border-t border-brand-border space-y-2">
-                <div className="flex items-baseline justify-between gap-1">
-                  <span className="text-sm sm:text-base font-bold text-brand-primary">
-                    {product.price}
-                  </span>
-                  <span className="text-[10px] text-brand-muted">{product.installment}</span>
-                </div>
-                <Link
-                  to={`/produto/${product.id}`}
-                  className={`btn w-full text-xs ${
-                    product.available ? "btn-primary" : "btn-secondary opacity-70"
-                  }`}
-                >
-                  {product.available ? "Comprar Agora" : "Indisponível"}
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+            {filteredProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                id={product.id}
+                name={product.name}
+                category={product.category}
+                subtitle={product.subtitle}
+                price={product.price}
+                installmentText={product.installmentText}
+                sizes={product.sizes}
+                colors={product.colors}
+                badgeText={product.badgeText}
+                stockStatus={product.stockStatus}
+                isFavorite={favorites.includes(product.id)}
+                onToggleFavorite={toggleFavorite}
+                onAction={(id) => navigate(`/produto/${id}`)}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="Nenhuma peça encontrada"
+            description="Não encontramos peças para o filtro digitado. Limpe a busca para ver toda a coleção."
+            actionLabel="Limpar filtro"
+            onAction={() => setFilterText("")}
+          />
+        )}
       </section>
     </div>
   );
@@ -247,16 +266,18 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
 function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) {
   const params = useParams();
   const location = useLocation();
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [orderConfirmed, setOrderConfirmed] = useState(false);
 
   return (
     <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Cabeçalho da Página do Painel */}
-      <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs">
+      <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-blush text-brand-plum mb-2">
+            <Badge variant="blush" className="mb-2">
               Área Administrativa • Rota: {location.pathname}
-            </span>
+            </Badge>
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum mb-1">
               {descriptor.title}
             </h1>
@@ -269,14 +290,26 @@ function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-brand-primary text-white">
+            <Badge variant="brand" dot>
               2 Pendentes
-            </span>
-            <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-brand-soft text-brand-plum border border-brand-border">
-              14 Confirmados
-            </span>
+            </Badge>
+            <Badge variant="available">14 Confirmados</Badge>
+            <Badge variant="lowStock">1 Alerta de Estoque</Badge>
           </div>
         </div>
+
+        {/* Aviso Rápido (Alert) */}
+        <Alert
+          variant={orderConfirmed ? "success" : "info"}
+          title={
+            orderConfirmed
+              ? "Pedido #1042 confirmado e estoque atualizado!"
+              : "Baixa Automática Sincronizada"
+          }
+        >
+          Ao confirmar o pedido, o sistema debita imediatamente as peças do inventário da boutique e
+          atualiza a vitrine online.
+        </Alert>
       </section>
 
       {/* Visão Master-Detail Responsiva: 1 coluna empilhada no Celular, 12 colunas (5 + 7) no Computador */}
@@ -287,9 +320,9 @@ function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               <span className="font-editorial text-base font-bold text-brand-plum">
                 Pedido #1042
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-brand-blush text-brand-primary">
-                Pendente
-              </span>
+              <Badge variant={orderConfirmed ? "available" : "blush"}>
+                {orderConfirmed ? "Confirmado" : "Pendente"}
+              </Badge>
             </div>
             <p className="text-sm font-semibold text-text-primary">Mariana Silva</p>
             <p className="text-xs text-brand-muted mb-3">Recebido via WhatsApp • 3 peças</p>
@@ -304,9 +337,7 @@ function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               <span className="font-editorial text-base font-bold text-brand-plum">
                 Pedido #1040
               </span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-status-danger-bg text-status-danger">
-                Atenção Estoque
-              </span>
+              <Badge variant="outOfStock">Atenção Estoque</Badge>
             </div>
             <p className="text-sm font-semibold text-text-primary">Camila Rocha</p>
             <p className="text-xs text-brand-muted mb-3">Recebido via WhatsApp • 2 peças</p>
@@ -315,11 +346,16 @@ function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               <span className="text-xs font-semibold text-brand-primary">Ver detalhes →</span>
             </div>
           </div>
+
+          <EmptyState
+            title="Tudo em harmonia"
+            description="Apenas 2 pedidos aguardando seu carinho hoje. Cada peça embalada leva sua delicadeza e dedicação."
+          />
         </section>
 
-        <section className="lg:col-span-7 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-brand-border mb-4">
+        <section className="lg:col-span-7 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col justify-between space-y-6">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-brand-border">
               <div>
                 <h2 className="font-editorial text-xl font-bold text-brand-plum">
                   Resumo da Seleção • #1042
@@ -328,12 +364,17 @@ function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
                   Conferência com inventário ativo em tempo real
                 </p>
               </div>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-brand-blush text-brand-primary">
-                Aguardando Confirmação
-              </span>
+              <Badge variant="blush">Aguardando Confirmação</Badge>
             </div>
 
-            <div className="space-y-3 mb-6">
+            <Input
+              label="Buscar cliente ou número do pedido"
+              rightLabel="Filtro Rápido"
+              placeholder="Ex.: Mariana Silva ou #1042"
+              leftIcon={<Mail className="w-4 h-4" />}
+            />
+
+            <div className="space-y-3">
               <div className="bg-brand-soft rounded-xl p-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-bold text-text-primary">Sutiã Renda Noir</p>
@@ -359,16 +400,53 @@ function AdminRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className="btn btn-secondary text-xs">
+              <Button variant="secondary" size="sm">
                 Cancelar Pedido
-              </button>
-              <button type="button" className="btn btn-primary text-xs">
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setIsConfirmModalOpen(true)}>
                 Confirmar Pedido & Baixar Estoque
-              </button>
+              </Button>
             </div>
           </div>
         </section>
       </div>
+
+      {/* Modal de Confirmação de Pedido & Baixa no Estoque */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        subtitle="CONFIRMAÇÃO DE RESERVA • PEDIDO #1042"
+        title="Confirmar Pedido & Baixa no Estoque"
+        description="Ao confirmar este pedido, as peças serão debitadas automaticamente do estoque físico da boutique e sincronizadas na vitrine virtual:"
+        icon={<ClipboardCheck className="w-5 h-5" />}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIsConfirmModalOpen(false)}>
+              Voltar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setOrderConfirmed(true);
+                setIsConfirmModalOpen(false);
+              }}
+            >
+              Sim, Confirmar Pedido
+            </Button>
+          </>
+        }
+      >
+        <div className="bg-brand-soft rounded-xl p-3 space-y-2 border border-brand-border">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-text-primary">Sutiã Renda Noir (P)</span>
+            <Badge variant="outOfStock">4 un. → 3 un. (-1 un.)</Badge>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-text-primary">Conjunto Microfibra Nude (M)</span>
+            <Badge variant="outOfStock">3 un. → 2 un. (-1 un.)</Badge>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
