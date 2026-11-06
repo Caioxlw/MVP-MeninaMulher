@@ -7,6 +7,8 @@ import path from "path";
 import { upload } from "./lib/upload";
 import { requireAdminAuth } from "./middlewares/auth.middleware";
 import { authRoutes } from "./routes/auth.routes";
+import { categoryRoutes } from "./routes/category.routes";
+import { adminProductRoutes, productRoutes } from "./routes/product.routes";
 
 dotenv.config();
 
@@ -30,6 +32,11 @@ app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
 // Rotas de Autenticação da Empresária (PBI #3 - RF11, RNF05)
 app.use("/api/auth", authRoutes);
+
+// Rotas de Categorias e Produtos (PBI #16 - RF01, RF02, RF03, RF11, RF12)
+app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/admin/products", adminProductRoutes);
 
 // Endpoint de Informações da Aplicação
 app.get("/api/info", (_req: Request, res: Response) => {

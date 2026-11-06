@@ -199,10 +199,29 @@ docker compose up -d --build
 
 ## 🔌 Endpoints da API
 
+### Infraestrutura e Diagnóstico
+
 - `GET /api/info` - Metadados e versão da API (Público)
 - `GET /api/health` - Verificação de integridade da API e conectividade com o PostgreSQL (Público)
+
+### Autenticação e Controle de Acesso (`PBI #3`)
+
 - `POST /api/auth/login` - Autentica a empresária (`email` e `password`), valida o hash `scrypt` em tempo constante e retorna `{ token, user: { id, name, email, role } }` sem expor `passwordHash` (Público — `RF11`, `RNF05`)
 - `GET /api/auth/me` - Valida o header `Authorization: Bearer <token>`, confirma que a conta segue ativa no banco e retorna os dados públicos da empresária (`ADMIN` — `RF11`)
+
+### Categorias e Produtos (`PBI #16`)
+
+- `GET /api/categories` - Lista todas as categorias (`id`, `name`, `slug`) ordenadas por nome para navegação no site e select no painel (Público — `RF03`, `US02`)
+- `GET /api/products` - Lista **apenas produtos ativos (`active: true`)** para a vitrine pública, suportando filtros `?featured=true`, `?categoryId=` e `?category=<slug>` (Público — `RF01`, `RF02`, `RF03`, `US01`, `US07`)
+- `GET /api/products/:id` - Retorna os dados de um produto **ativo (`active: true`)** ou `404 Not Found` caso não exista ou esteja oculto (Público — `RF02`, `RF04`, `US11`)
+- `GET /api/admin/products` - Lista **todos os produtos (ativos e ocultos)** para gestão no painel da empresária (`ADMIN` — `RF11`, `RF12`)
+- `GET /api/admin/products/:id` - Retorna os dados de qualquer produto (ativo ou oculto) para edição no painel (`ADMIN` — `RF11`, `RF12`)
+- `POST /api/products` - Cadastra um novo produto validando `name` não vazio, `price >= 0` e existência de `categoryId` (`ADMIN` — `RF11`, `RF12`, `RNF09`, `US09`)
+- `PATCH /api/products/:id` - Atualiza dados do produto (nome, descrição, preço, categoria, destaque) e permite ocultar (`active: false`) ou reativar (`active: true`) peças no catálogo (`ADMIN` — `RF11`, `RF12`, `US11`)
+- `DELETE /api/products/:id` - Exclui fisicamente um produto sem pedidos vinculados ou retorna `409 Conflict` amigável orientando ocultá-lo (`active: false`) caso alguma variação já possua `OrderItem` registrado (`ADMIN` — `RF11`, `RF12`, `RNF09`)
+
+### Upload de Mídia (`PBI #13`)
+
 - `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`)
 
 ---
