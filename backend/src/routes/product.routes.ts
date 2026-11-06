@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { ProductController } from "../controllers/product.controller";
 import { requireAdminAuth } from "../middlewares/auth.middleware";
+import { variantRoutes } from "./variant.routes";
 
 const productRoutes = Router();
 const adminProductRoutes = Router();
@@ -16,6 +17,9 @@ const productLimiter = rateLimit({
 
 productRoutes.use(productLimiter);
 adminProductRoutes.use(productLimiter);
+
+// Sub-rotas de variações de produto (/api/products/:productId/variants - PBI #18)
+productRoutes.use("/:productId/variants", variantRoutes);
 
 // Rotas públicas da vitrine (apenas produtos com active: true - RF01, RF02, RF03, US01, US11)
 productRoutes.get("/", productLimiter, productController.listPublic);
