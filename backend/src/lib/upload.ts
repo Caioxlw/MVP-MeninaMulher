@@ -1,11 +1,14 @@
-﻿import multer from "multer";
+import multer from "multer";
 import path from "path";
 import crypto from "crypto";
+import fs from "fs";
 
 // 1. Configuração de Armazenamento em Disco
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, path.resolve(__dirname, "../../uploads"));
+    const uploadDir = path.resolve(__dirname, "../../uploads");
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
   },
   filename: (_req, file, cb) => {
     const hash = crypto.randomBytes(8).toString("hex");
