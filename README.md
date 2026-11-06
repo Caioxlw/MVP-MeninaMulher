@@ -220,6 +220,13 @@ docker compose up -d --build
 - `PATCH /api/products/:id` - Atualiza dados do produto (nome, descrição, preço, categoria, destaque) e permite ocultar (`active: false`) ou reativar (`active: true`) peças no catálogo (`ADMIN` — `RF11`, `RF12`, `US11`)
 - `DELETE /api/products/:id` - Exclui fisicamente um produto sem pedidos vinculados ou retorna `409 Conflict` amigável orientando ocultá-lo (`active: false`) caso alguma variação já possua `OrderItem` registrado (`ADMIN` — `RF11`, `RF12`, `RNF09`)
 
+### Variações de Produto e Estoque (`PBI #18`)
+
+- `GET /api/products/:productId/variants` - Lista todas as variações (`id`, `size`, `color`, `stock`) de um produto ordenadas por tamanho e cor, ou retorna `404 Not Found` se o produto não existir (Público — `RF02`, `RF04`, `US02`, `US03`)
+- `POST /api/products/:productId/variants` - Cria uma variação individual (`{ size, color, stock? }`) ou um lote atômico (`{ variants: [...] }`) em transação, padronizando `size` para `UPPERCASE`, aplicando `trim()` em `color`, validando `stock >= 0` inteiro e bloqueando colisões case-insensitive com `409 Conflict` (`ADMIN` — `RF11`, `RF12`, `RNF09`, `US09`, `US10`)
+- `PATCH /api/products/:productId/variants/:variantId` - Atualiza `size`, `color` e/ou `stock` (`>= 0`) de uma variação pertencente ao produto, bloqueando colisões de combinação com `409 Conflict` (`ADMIN` — `RF11`, `RF12`, `US10`)
+- `DELETE /api/products/:productId/variants/:variantId` - Remove uma variação sem histórico de vendas ou retorna `409 Conflict` amigável orientando zerar o estoque (`stock = 0`) caso já possua `OrderItem` vinculado (`ADMIN` — `RF11`, `RF12`, `RNF09`)
+
 ### Upload de Mídia (`PBI #13`)
 
 - `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`)
