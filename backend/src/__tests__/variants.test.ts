@@ -200,8 +200,6 @@ describe("Integração HTTP — Variações de Produto (PBI #18 / Task #89)", ()
 
     const order = await prisma.order.create({
       data: {
-        customerName: "Cliente Teste",
-        customerPhone: "11999990000",
         totalAmount: "259.90",
         items: {
           create: [
