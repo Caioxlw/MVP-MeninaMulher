@@ -52,10 +52,10 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-brand-bg text-text-primary flex">
-      {/* Menu Lateral no Computador (>= 1024px) */}
+      {/* Menu Lateral no Computador (>= 768px) */}
       <aside
         aria-label="Menu lateral do painel administrativo"
-        className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-brand-soft border-r border-brand-border justify-between"
+        className="hidden md:flex md:w-60 lg:w-64 md:flex-col md:fixed md:inset-y-0 bg-brand-soft border-r border-brand-border justify-between z-30"
       >
         <div>
           {/* Logo na Sidebar */}
@@ -119,11 +119,11 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
       </aside>
 
       {/* Coluna Principal (Cabeçalho + Conteúdo + Navegação Inferior Mobile) */}
-      <div className="flex-1 flex flex-col lg:pl-64 min-w-0">
+      <div className="flex-1 flex flex-col md:pl-60 lg:pl-64 min-w-0">
         {/* Cabeçalho Superior do Painel */}
-        <header className="sticky top-0 z-20 bg-brand-surface border-b border-brand-border px-4 lg:px-8 py-3 lg:h-20 flex items-center justify-between gap-3">
-          {/* Identificação Mobile (< 1024px) */}
-          <div className="lg:hidden">
+        <header className="sticky top-0 z-20 bg-brand-surface border-b border-brand-border px-4 md:px-6 lg:px-8 py-3 md:h-20 flex items-center justify-between gap-3">
+          {/* Identificação Mobile (< 768px) */}
+          <div className="md:hidden">
             <span className="text-[11px] font-bold uppercase tracking-wider text-brand-primary block">
               Menina Mulher
             </span>
@@ -132,8 +132,8 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
             </p>
           </div>
 
-          {/* Identificação Desktop (>= 1024px) */}
-          <div className="hidden lg:flex items-center gap-4">
+          {/* Identificação Desktop (>= 768px) */}
+          <div className="hidden md:flex items-center gap-4">
             <div>
               <p className="text-sm font-bold text-text-primary leading-tight">
                 Boutique Menina Mulher
@@ -150,7 +150,7 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
 
           {/* Avatar / Selo MM à Direita */}
           <div className="flex items-center gap-3">
-            <span className="lg:hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brand-blush text-brand-plum">
+            <span className="md:hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brand-blush text-brand-plum">
               <span className="w-2 h-2 rounded-full bg-brand-primary" />
               Boutique Aberta
             </span>
@@ -167,12 +167,12 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
         </header>
 
         {/* Conteúdo Principal do Painel */}
-        <main className="flex-1 w-full pb-24 lg:pb-8">{children ?? <Outlet />}</main>
+        <main className="flex-1 w-full pb-24 md:pb-8">{children ?? <Outlet />}</main>
 
-        {/* Navegação Inferior no Celular (< 1024px) */}
+        {/* Navegação Inferior no Celular (< 768px) */}
         <nav
           aria-label="Navegação inferior do painel mobile"
-          className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-brand-surface border-t border-brand-border px-2 py-1 flex items-center justify-around"
+          className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-brand-surface border-t border-brand-border px-2 py-1 flex items-center justify-around"
         >
           {sections.map((section) => {
             const Icon = section.icon;

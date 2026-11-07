@@ -1,32 +1,127 @@
-# React + TypeScript + Vite
+# Frontend — Menina Mulher Lingerie 🌸
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Aplicação web _mobile-first_ da **Menina Mulher**, construída com **React 19**, **Vite 8**, **TypeScript**, **Tailwind CSS v4** e **React Router**, seguindo a identidade visual oficial da marca e os requisitos de usabilidade e acessibilidade (`RNF01`, `RNF07`, `RNF08` — PBI #69).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🎨 Tema Oficial (`src/styles/theme.ts` e `src/index.css`)
 
-## React Compiler
+Os tokens visuais da marca estão centralizados em [`src/styles/theme.ts`](./src/styles/theme.ts) e [`src/index.css`](./src/index.css):
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Primária (Magenta)**: `#D1025A` (`bg-brand-primary`, `text-brand-primary`)
+- **Títulos / Vinho Profundo**: `#520139` (`text-brand-plum`, `bg-brand-plum`)
+- **Rosa Claro / Blush**: `#F5CCD0` (`bg-brand-blush`)
+- **Superfície Clara**: `#FFFFFF` (`bg-brand-surface`)
+- **Texto Secundário / Malva**: `#6F4F64` (`text-brand-muted`)
+- **Tipografia**: _Playfair Display_ (`font-editorial`) para títulos e _Plus Jakarta Sans_ para corpo e controles.
+- **Acessibilidade**: Área clicável mínima de `44px` (`min-h-[44px]` / `.touch-target`), contraste `>= 4,5:1` e suporte a telas a partir de `360px` sem rolagem horizontal.
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## 🧩 Biblioteca de Componentes Base (`src/components/ui/`)
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+Todos os componentes base estão exportados em [`src/components/ui/index.ts`](./src/components/ui/index.ts):
+
+### 1. Botão (`Button`)
+
+```tsx
+import { Button } from "./components/ui";
+
+<Button variant="primary" onClick={handleConfirm}>
+  Confirmar Pedido & Baixar Estoque
+</Button>
+<Button variant="secondary" onClick={handleCancel}>
+  Voltar
+</Button>
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### 2. Campo de Texto (`Input`)
+
+```tsx
+import { Input } from "./components/ui";
+
+<Input
+  label="E-mail Corporativo"
+  rightLabel="Proprietária"
+  placeholder="contato@meninamulher.com.br"
+  error={emailError}
+/>;
+```
+
+### 3. Etiqueta de Status (`Badge`)
+
+```tsx
+import { Badge } from "./components/ui";
+
+<Badge variant="available" dot>Disponível</Badge>
+<Badge variant="lowStock">Últimas unidades</Badge>
+<Badge variant="outOfStock">Esgotado</Badge>
+```
+
+### 4. Cartão de Produto (`ProductCard`)
+
+```tsx
+import { ProductCard } from "./components/ui";
+
+<ProductCard
+  id="sutia-renda-noir"
+  name="Sutiã Renda Noir"
+  category="Partes de Cima"
+  subtitle="Toque aveludado e suave"
+  price={119.9}
+  installmentText="3x s/ juros"
+  sizes={["P", "M", "G"]}
+  colors={["#23101B", "#D1025A"]}
+  badgeText="Destaque"
+  stockStatus="available"
+  onAction={(id) => navigate(`/produto/${id}`)}
+/>;
+```
+
+### 5. Janela / Modal (`Modal`)
+
+```tsx
+import { Modal, Button } from "./components/ui";
+
+<Modal
+  isOpen={isOpen}
+  onClose={() => setIsOpen(false)}
+  subtitle="CONFIRMAÇÃO DE RESERVA • PEDIDO #1042"
+  title="Confirmar Pedido & Baixa no Estoque"
+  footer={
+    <>
+      <Button variant="secondary" onClick={() => setIsOpen(false)}>
+        Voltar
+      </Button>
+      <Button variant="primary" onClick={handleConfirm}>
+        Sim, Confirmar Pedido
+      </Button>
+    </>
+  }
+>
+  <p>Ao confirmar este pedido, as peças serão debitadas automaticamente do estoque.</p>
+</Modal>;
+```
+
+### 6. Aviso Rápido (`Alert`)
+
+```tsx
+import { Alert } from "./components/ui";
+
+<Alert variant="error" title="Credenciais não reconhecidas">
+  E-mail ou senha incorretos. Verifique os dados digitados e tente novamente.
+</Alert>;
+```
+
+### 7. Estado Vazio (`EmptyState`)
+
+```tsx
+import { EmptyState } from "./components/ui";
+
+<EmptyState
+  title="Tudo em harmonia"
+  description="Apenas 2 pedidos aguardando seu carinho hoje."
+  actionLabel="Ver Catálogo"
+  onAction={() => navigate("/catalogo")}
+/>;
+```
