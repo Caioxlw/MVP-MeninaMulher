@@ -6,6 +6,7 @@ import {
   Download,
   Edit3,
   Eye,
+  Gift,
   Heart,
   Lock,
   Mail,
@@ -15,12 +16,16 @@ import {
   Package,
   Phone,
   Plus,
+  RefreshCw,
   Ruler,
   Search,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Star,
+  Trash2,
   Truck,
+  User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -64,53 +69,58 @@ const PREVIEW_PRODUCTS: Array<{
   installmentText: string;
   sizes: string[];
   colors: string[];
+  colorNames: string[];
   badgeText?: string;
   stockStatus: ProductStockStatus;
 }> = [
   {
     id: "sutia-renda-noir",
     category: "Partes de Cima",
-    name: "Sutiã Renda",
-    subtitle: "Toque aveludado e suave",
+    name: "Sutiã Renda Noir",
+    subtitle: "Aro duplo em tule bordado e toque suave",
     price: 119.9,
-    installmentText: "3x s/ juros",
+    installmentText: "3x de R$ 39,96 s/ juros",
     sizes: ["P", "M", "G"],
     colors: ["#23101B", "#6F4F64", "#F5CCD0"],
+    colorNames: ["Preto", "Cinza", "Rosa"],
     badgeText: "Destaque",
     stockStatus: "available",
   },
   {
     id: "calcinha-algodao-doce",
     category: "Partes de Baixo",
-    name: "Calcinha Algodão",
-    subtitle: "Respirável e diária",
+    name: "Calcinha Algodão Doce",
+    subtitle: "Respirável e ideal para o dia a dia",
     price: 39.9,
     installmentText: "À vista",
     sizes: ["M", "G"],
-    colors: ["#F5CCD0"],
+    colors: ["#F5CCD0", "#FFFFFF"],
+    colorNames: ["Rosa", "Branco"],
     badgeText: "100% Algodão",
     stockStatus: "low_stock",
   },
   {
     id: "conjunto-microfibra-nude",
     category: "Conjuntos",
-    name: "Conjunto Microfibra",
-    subtitle: "Tecido toque de seda",
+    name: "Conjunto Microfibra Nude",
+    subtitle: "Tecido toque de seda segunda pele",
     price: 149.9,
-    installmentText: "4x s/ juros",
-    sizes: ["M"],
-    colors: ["#E5C3B5"],
+    installmentText: "4x de R$ 37,47 s/ juros",
+    sizes: ["P", "M"],
+    colors: ["#E5C3B5", "#520139"],
+    colorNames: ["Nude", "Vinho"],
     stockStatus: "low_stock",
   },
   {
     id: "body-renda-floral",
     category: "Partes de Cima",
-    name: "Body Renda",
-    subtitle: "Decote costas cavadas",
+    name: "Body Renda Manga Longa",
+    subtitle: "Transparência poá sutil e costas cavadas",
     price: 99.9,
     installmentText: "Consulte reposição",
     sizes: ["P", "M"],
     colors: ["#23101B"],
+    colorNames: ["Preto"],
     stockStatus: "out_of_stock",
   },
   {
@@ -120,8 +130,9 @@ const PREVIEW_PRODUCTS: Array<{
     subtitle: "Fluidez e noites tranquilas",
     price: 139.9,
     installmentText: "3x s/ juros",
-    sizes: ["P", "M"],
+    sizes: ["P", "M", "G"],
     colors: ["#520139", "#F5CCD0"],
+    colorNames: ["Vinho", "Rosa"],
     badgeText: "Novo",
     stockStatus: "available",
   },
@@ -129,22 +140,25 @@ const PREVIEW_PRODUCTS: Array<{
     id: "calcinha-renda-floral",
     category: "Partes de Baixo",
     name: "Calcinha Renda Floral",
-    subtitle: "Cós elástico macio",
+    subtitle: "Cós elástico macio sem marcar",
     price: 45.9,
     installmentText: "À vista",
     sizes: ["P", "M", "G", "GG"],
     colors: ["#F5CCD0", "#23101B"],
+    colorNames: ["Rosa", "Preto"],
     stockStatus: "available",
   },
   {
     id: "sutia-triangulo-conforto",
     category: "Partes de Cima",
-    name: "Sutiã Triângulo Conforto",
-    subtitle: "Sem aro e sustentação natural",
-    price: 89.9,
-    installmentText: "2x s/ juros",
+    name: "Sutiã Triângulo Soft",
+    subtitle: "Renda floral pura sem bojo",
+    price: 109.9,
+    installmentText: "3x de R$ 36,63 s/ juros",
     sizes: ["P", "M", "G"],
     colors: ["#23101B", "#F5CCD0"],
+    colorNames: ["Preto", "Rosa"],
+    badgeText: "Romântico",
     stockStatus: "available",
   },
   {
@@ -154,10 +168,55 @@ const PREVIEW_PRODUCTS: Array<{
     subtitle: "Acabamento artesanal em renda",
     price: 159.9,
     installmentText: "3x s/ juros",
-    sizes: ["Único"],
+    sizes: ["P", "M", "G", "GG"],
     colors: ["#FFFFFF", "#D1025A"],
+    colorNames: ["Branco", "Rosa"],
     badgeText: "Edição Limitada",
     stockStatus: "available",
+  },
+];
+
+interface BagItem {
+  id: string;
+  tag: string;
+  name: string;
+  color: string;
+  colorHex: string;
+  size: string;
+  unitPrice: number;
+  qty: number;
+}
+
+const INITIAL_BAG_ITEMS: BagItem[] = [
+  {
+    id: "sutia-renda-noir",
+    tag: "RENDA NOBRE",
+    name: "Sutiã Renda Floral",
+    color: "Preto",
+    colorHex: "#23101B",
+    size: "P",
+    unitPrice: 119.9,
+    qty: 1,
+  },
+  {
+    id: "calcinha-algodao-doce",
+    tag: "CONFORTO PURO",
+    name: "Calcinha Algodão Doce",
+    color: "Rosa",
+    colorHex: "#F5CCD0",
+    size: "M",
+    unitPrice: 39.9,
+    qty: 2,
+  },
+  {
+    id: "conjunto-microfibra-nude",
+    tag: "ÚLTIMAS UNIDADES",
+    name: "Conjunto Microfibra Nude",
+    color: "Nude",
+    colorHex: "#E5C3B5",
+    size: "M",
+    unitPrice: 149.9,
+    qty: 1,
   },
 ];
 
@@ -306,9 +365,21 @@ const ADMIN_CATALOG_PRODUCTS = [
   },
 ];
 
-function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) {
-  const params = useParams();
-  const location = useLocation();
+function formatBRL(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+/* ============================================================================
+ * TELAS DA LOJA (CLIENTE)
+ * ============================================================================ */
+
+/**
+ * C01 / Desktop Home — Página Inicial da Loja (/)
+ */
+function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const navigate = useNavigate();
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
@@ -316,7 +387,6 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
   useEffect(() => {
-    if (location.pathname !== ROUTES.store.home) return;
     let active = true;
     fetch("/api/health")
       .then((res) => res.json())
@@ -329,7 +399,7 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
     return () => {
       active = false;
     };
-  }, [location.pathname]);
+  }, []);
 
   const isConnected = health?.services?.database?.status === "connected";
 
@@ -348,17 +418,15 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8 md:space-y-12">
-      {/* Hero Editorial Responsivo: 1 coluna no Mobile (< 768px), 2 colunas (7 + 5) no Desktop (>= 768px) */}
+      {/* Hero Editorial Responsivo: 1 coluna no Mobile, 2 colunas (7 + 5) no Desktop */}
       <section className="bg-brand-soft/70 border border-brand-border rounded-2xl p-5 sm:p-8 md:p-10 shadow-xs">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-center">
           <div className="md:col-span-7 space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="blush">NOVA COLEÇÃO • ALTA SENSUALIDADE</Badge>
-              {location.pathname === ROUTES.store.home && (
-                <Badge variant="available" dot>
-                  {isConnected ? "Conectado" : "Verificando API"}
-                </Badge>
-              )}
+              <Badge variant="available" dot>
+                {isConnected ? "Conectado" : "Verificando API"}
+              </Badge>
             </div>
 
             <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-brand-plum leading-tight">
@@ -367,12 +435,6 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
             <p className="text-sm sm:text-base text-text-secondary max-w-2xl">
               {descriptor.subtitle}
             </p>
-
-            {(params.slug || params.id) && (
-              <p className="text-sm font-medium text-brand-primary">
-                Parâmetro selecionado: {params.slug ?? params.id}
-              </p>
-            )}
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Button variant="primary" onClick={() => navigate(ROUTES.store.catalog)}>
@@ -384,7 +446,6 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
               </Button>
             </div>
 
-            {/* Pílulas de diferencial em Grid Responsivo (1 col no celular -> 3 cols no desktop) */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <div className="bg-brand-surface border border-brand-border rounded-xl p-3 flex items-center gap-2.5">
                 <Truck className="w-4 h-4 text-brand-primary shrink-0" />
@@ -410,7 +471,6 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
             </div>
           </div>
 
-          {/* Card Editorial Direito no Desktop */}
           <div className="md:col-span-5">
             <div className="bg-brand-surface border border-brand-border rounded-2xl p-6 md:p-7 flex flex-col justify-between min-h-[240px] md:min-h-[300px] shadow-xs relative overflow-hidden">
               <div className="space-y-3">
@@ -439,7 +499,7 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
         </div>
       </section>
 
-      {/* Grade Responsiva do Catálogo (2 colunas no Mobile, 3 em Tablet, 4 no Desktop) */}
+      {/* Grade Responsiva do Catálogo */}
       <section aria-label="Prévia da grade responsiva da loja" className="space-y-5">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
@@ -452,7 +512,6 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
             <p className="text-xs text-brand-muted">Conforto absoluto do amanhecer ao anoitecer</p>
           </div>
 
-          {/* Abas de Categorias + Busca */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="flex flex-wrap items-center gap-1.5 bg-brand-soft p-1.5 rounded-xl border border-brand-border">
               {["Todos", "Partes de Cima", "Partes de Baixo", "Conjuntos"].map((cat) => (
@@ -517,7 +576,7 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
         )}
       </section>
 
-      {/* Seção Editorial "Nossa Essência" (2 colunas no Desktop, 1 no Mobile) */}
+      {/* Seção Editorial "Nossa Essência" */}
       <section className="bg-brand-surface border border-brand-border rounded-2xl p-6 md:p-10 shadow-xs">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-center">
           <div className="md:col-span-5 bg-brand-soft border border-brand-border rounded-2xl p-8 flex flex-col items-center justify-center text-center min-h-[220px]">
@@ -559,7 +618,7 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
         </div>
       </section>
 
-      {/* Seção "Visita & Contato" (2 colunas no Desktop, 1 no Mobile) */}
+      {/* Seção "Visita & Contato" */}
       <section className="space-y-4">
         <div className="text-center max-w-xl mx-auto">
           <span className="text-[11px] font-bold uppercase tracking-wider text-brand-primary block">
@@ -636,8 +695,1134 @@ function StoreRoutePlaceholder({ descriptor }: { descriptor: RouteDescriptor }) 
 }
 
 /**
- * 1. Tela de Gestão de Pedidos (/painel/pedidos)
+ * C04 — Tela de Catálogo e Coleções por Categoria (/catalogo e /categoria/:slug)
  */
+function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
+  const params = useParams();
+  const navigate = useNavigate();
+  const [selectedColor, setSelectedColor] = useState("Todas");
+  const [selectedSize, setSelectedSize] = useState("Todos");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
+
+  const slugMap: Record<string, string> = {
+    "partes-de-cima": "Partes de Cima",
+    "partes-de-baixo": "Partes de Baixo",
+    conjuntos: "Conjuntos",
+  };
+  const categoryFilterName = params.slug ? (slugMap[params.slug] ?? null) : null;
+
+  const filteredProducts = PREVIEW_PRODUCTS.filter((p) => {
+    const matchesCategory =
+      !categoryFilterName || p.category.toLowerCase() === categoryFilterName.toLowerCase();
+    const matchesColor = selectedColor === "Todas" || p.colorNames.includes(selectedColor);
+    const matchesSize = selectedSize === "Todos" || p.sizes.includes(selectedSize);
+    const matchesQuery = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+    return matchesCategory && matchesColor && matchesSize && matchesQuery;
+  });
+
+  const toggleFavorite = (productId: string) => {
+    setFavorites((prev) =>
+      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
+    );
+  };
+
+  return (
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
+      {/* Cabeçalho da Categoria / Catálogo */}
+      <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-8 shadow-xs space-y-5">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-brand-muted mb-2">
+              <span>Início</span>
+              <span>›</span>
+              <span className="font-bold text-brand-primary">
+                {categoryFilterName ?? "Catálogo Completo"}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-3">
+              <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-brand-plum">
+                {descriptor.title}
+              </h1>
+              <Badge variant="blush">{filteredProducts.length} peças</Badge>
+            </div>
+            <p className="text-sm text-text-secondary mt-1 max-w-2xl">
+              {categoryFilterName
+                ? `Coleção ${categoryFilterName}: modelagens envolventes feitas em renda macia, toque sedoso e caimento impecável.`
+                : descriptor.subtitle}
+            </p>
+          </div>
+
+          <div className="w-full md:w-72">
+            <Input
+              label="Buscar peça na coleção"
+              placeholder="Buscar sutiã, calcinha, renda..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              leftIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
+        </div>
+
+        {/* Filtros de Cor e Tamanho (conforme protótipo C04 Categoria) */}
+        <div className="pt-4 border-t border-brand-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-muted mr-1">
+              COR:
+            </span>
+            {["Todas", "Preto", "Cinza", "Rosa", "Vinho", "Branco"].map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setSelectedColor(color)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                  selectedColor === color
+                    ? "bg-brand-primary text-white shadow-xs"
+                    : "bg-brand-soft text-text-primary hover:bg-brand-blush/50"
+                }`}
+              >
+                {color}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-brand-muted mr-1">
+              TAM:
+            </span>
+            {["Todos", "P", "M", "G", "GG"].map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setSelectedSize(size)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                  selectedSize === size
+                    ? "bg-brand-plum text-white shadow-xs"
+                    : "bg-brand-soft text-text-primary hover:bg-brand-blush/50"
+                }`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Grade de Peças Filtradas */}
+      {filteredProducts.length > 0 ? (
+        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+          {filteredProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              id={product.id}
+              name={product.name}
+              category={product.category}
+              subtitle={product.subtitle}
+              price={product.price}
+              installmentText={product.installmentText}
+              sizes={product.sizes}
+              colors={product.colors}
+              badgeText={product.badgeText}
+              stockStatus={product.stockStatus}
+              isFavorite={favorites.includes(product.id)}
+              onToggleFavorite={toggleFavorite}
+              onAction={(id) => navigate(`/produto/${id}`)}
+            />
+          ))}
+        </section>
+      ) : (
+        <EmptyState
+          title="Nenhuma peça encontrada com esses filtros"
+          description="Tente selecionar outra cor ou tamanho para ver mais opções da coleção."
+          actionLabel="Limpar Filtros"
+          onAction={() => {
+            setSelectedColor("Todas");
+            setSelectedSize("Todos");
+            setSearchQuery("");
+          }}
+        />
+      )}
+
+      {/* Banner de Apoio: Guia de Medidas (conforme C04 Categoria) */}
+      <section className="bg-brand-soft border border-brand-border rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <span className="w-11 h-11 rounded-full bg-brand-surface text-brand-primary border border-brand-border inline-flex items-center justify-center shrink-0">
+            <Ruler className="w-5 h-5" />
+          </span>
+          <div>
+            <h2 className="font-editorial text-lg sm:text-xl font-bold text-brand-plum">
+              Dúvidas sobre o tamanho ideal?
+            </h2>
+            <p className="text-xs sm:text-sm text-brand-muted">
+              Consulte nosso Guia de Medidas com fita métrica ou fale com nossa consultora íntima
+              pelo suporte.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button variant="secondary" size="sm" onClick={() => navigate(ROUTES.store.sizeGuide)}>
+            Tabela Completa
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => window.open("https://wa.me/5511987654321", "_blank")}
+          >
+            <MessageCircle className="w-4 h-4" />
+            Chamar no WhatsApp
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/**
+ * C05 / Desktop Detalhes do Produto (/produto/:id)
+ */
+function StoreProductDetailScreen({ descriptor }: { descriptor: RouteDescriptor }) {
+  const params = useParams();
+  const navigate = useNavigate();
+  const product = PREVIEW_PRODUCTS.find((p) => p.id === params.id) ?? PREVIEW_PRODUCTS[0];
+
+  const [selectedColor, setSelectedColor] = useState("Preto");
+  const [selectedSize, setSelectedSize] = useState("P");
+  const [qty, setQty] = useState(1);
+  const [addedFeedback, setAddedFeedback] = useState(false);
+
+  const sizeStock = [
+    { size: "P", units: 4, available: true },
+    { size: "M", units: 3, available: true },
+    { size: "G", units: 0, available: false },
+  ];
+
+  return (
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-10">
+      {/* Trilha de Navegação + Título da Rota */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-brand-muted flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.store.home)}
+            className="hover:text-brand-primary cursor-pointer"
+          >
+            Home
+          </button>
+          <span>›</span>
+          <span>{product.category}</span>
+          <span>›</span>
+          <span className="font-semibold text-brand-primary">{product.name}</span>
+        </div>
+        <Badge variant="blush">{descriptor.title}</Badge>
+      </div>
+
+      {addedFeedback && (
+        <Alert
+          variant="success"
+          title="Adicionado à sacola!"
+          onClose={() => setAddedFeedback(false)}
+        >
+          {product.name} ({selectedColor}, Tam {selectedSize}) foi salvo na sua sacola.{" "}
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.store.bag)}
+            className="font-bold underline text-brand-primary ml-2 cursor-pointer"
+          >
+            Ir para a Sacola →
+          </button>
+        </Alert>
+      )}
+
+      {/* Grid Principal do Produto: Galeria à Esquerda + Seleção à Direita */}
+      <section className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
+        {/* Galeria de Fotos */}
+        <div className="md:col-span-6 space-y-3">
+          <div className="aspect-3/4 rounded-2xl bg-brand-soft border border-brand-border p-6 flex flex-col justify-between relative shadow-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1.5">
+                <Badge variant="blush">MAIS VENDIDO</Badge>
+                <Badge variant="brand">Exclusivo</Badge>
+              </div>
+              <Badge variant="neutral">REF: MM-78401</Badge>
+            </div>
+
+            <div className="my-auto text-center space-y-2 py-12">
+              <span className="w-20 h-20 rounded-full bg-brand-blush text-brand-primary font-editorial text-3xl font-bold inline-flex items-center justify-center shadow-xs">
+                MM
+              </span>
+              <p className="font-editorial text-2xl font-bold text-brand-plum">{product.name}</p>
+              <p className="text-xs text-brand-muted">{product.subtitle}</p>
+            </div>
+
+            <div className="bg-brand-surface/90 backdrop-blur-xs rounded-xl p-3 border border-brand-border flex items-center justify-between text-xs text-brand-muted">
+              <span>✨ Renda francesa antialérgica com toque macio</span>
+              <span className="font-bold text-brand-plum">Cor: {selectedColor}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Coluna Direita: Preço, Cores, Tamanhos, Quantidade e Ações */}
+        <div className="md:col-span-6 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-7 shadow-xs space-y-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">
+                {product.category}
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary">
+                <Star className="w-3.5 h-3.5 fill-brand-primary" /> 4.9 (38 avaliações)
+              </span>
+            </div>
+            <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum">
+              {product.name}
+            </h1>
+            <div className="flex items-baseline gap-2.5 pt-1">
+              <span className="font-editorial text-2xl sm:text-3xl font-bold text-brand-primary">
+                {formatBRL(product.price)}
+              </span>
+              <span className="text-xs text-brand-muted">{product.installmentText}</span>
+            </div>
+          </div>
+
+          {/* Seletor de Cor */}
+          <div className="bg-brand-soft/60 border border-brand-border rounded-xl p-4 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-brand-muted">
+                Cor selecionada: <strong className="text-text-primary">{selectedColor}</strong>
+              </span>
+              <span className="text-brand-muted">3 opções</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {[
+                { name: "Preto", hex: "#23101B" },
+                { name: "Grafite", hex: "#6F4F64" },
+                { name: "Rosé", hex: "#F5CCD0" },
+              ].map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  onClick={() => setSelectedColor(c.name)}
+                  aria-label={`Selecionar cor ${c.name}`}
+                  className={`w-9 h-9 rounded-full border-2 cursor-pointer transition-transform ${
+                    selectedColor === c.name
+                      ? "border-brand-primary scale-110"
+                      : "border-brand-border"
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Seletor de Tamanho com Disponibilidade em Estoque (RF04, RF05) */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-brand-muted">
+                Tamanho: <strong className="text-text-primary">{selectedSize}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.store.sizeGuide)}
+                className="inline-flex items-center gap-1 font-bold text-brand-primary hover:underline cursor-pointer"
+              >
+                <Ruler className="w-3.5 h-3.5" /> Guia de Medidas
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5">
+              {sizeStock.map((item) => (
+                <button
+                  key={item.size}
+                  type="button"
+                  disabled={!item.available}
+                  onClick={() => setSelectedSize(item.size)}
+                  className={`touch-target rounded-xl border p-2.5 flex flex-col items-center justify-center transition-colors ${
+                    !item.available
+                      ? "bg-brand-soft border-brand-border text-brand-muted opacity-55 cursor-not-allowed"
+                      : selectedSize === item.size
+                        ? "bg-brand-plum text-white border-brand-plum shadow-xs cursor-pointer"
+                        : "bg-brand-surface text-text-primary border-brand-border hover:border-brand-primary cursor-pointer"
+                  }`}
+                >
+                  <span className="text-sm font-bold">{item.size}</span>
+                  <span className="text-[10px] opacity-85">
+                    {item.available ? `${item.units} un.` : "Esgotado"}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <p className="text-xs font-semibold text-brand-primary flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-brand-primary" />
+              Em estoque para envio imediato (Tamanho {selectedSize} disponível)
+            </p>
+          </div>
+
+          {/* Quantidade + Botão Adicionar à Sacola */}
+          <div className="flex items-center gap-3 pt-1">
+            <div className="inline-flex items-center bg-brand-soft border border-brand-border rounded-xl p-1">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                className="w-9 h-9 rounded-lg text-brand-plum hover:bg-brand-surface inline-flex items-center justify-center cursor-pointer"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="min-w-[32px] text-center text-sm font-bold">{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty((q) => q + 1)}
+                className="w-9 h-9 rounded-lg text-brand-plum hover:bg-brand-surface inline-flex items-center justify-center cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            <Button variant="primary" fullWidth onClick={() => setAddedFeedback(true)}>
+              <ShoppingBag className="w-4 h-4" />
+              Adicionar à sacola
+            </Button>
+          </div>
+
+          {/* Detalhes Técnicos & Composição */}
+          <div className="pt-4 border-t border-brand-border space-y-3">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-brand-primary">
+              ✨ Detalhes do Produto & Tecido
+            </h2>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Confeccionado com toque suave e design anatômico que valoriza as formas naturais do
+              corpo sem comprimir. Renda francesa antialérgica com acabamento macio e suporte
+              delicado.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
+                <span className="text-[10px] font-bold uppercase text-brand-muted block">
+                  COMPOSIÇÃO
+                </span>
+                <span className="text-xs font-bold text-text-primary">
+                  90% Poliamida, 10% Elastano
+                </span>
+              </div>
+              <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
+                <span className="text-[10px] font-bold uppercase text-brand-muted block">
+                  FECHAMENTO
+                </span>
+                <span className="text-xs font-bold text-text-primary">
+                  Colchete duplo com 3 regulagens
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/**
+ * C09 / Desktop Sacola de Compras (/sacola)
+ */
+function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) {
+  const [items, setItems] = useState<BagItem[]>(INITIAL_BAG_ITEMS);
+  const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
+  const [customerName, setCustomerName] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const updateItemQty = (id: string, delta: number) => {
+    setItems((prev) =>
+      prev
+        .map((item) => (item.id === id ? { ...item, qty: item.qty + delta } : item))
+        .filter((item) => item.qty > 0)
+    );
+  };
+
+  const removeItem = (id: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const totalCount = items.reduce((acc, item) => acc + item.qty, 0);
+  const totalAmount = items.reduce((acc, item) => acc + item.unitPrice * item.qty, 0);
+
+  const whatsappMessageLines = [
+    "Olá, Menina Mulher Lingerie! Gostaria de fazer o pedido:",
+    ...items.map(
+      (item) =>
+        `- ${item.qty}x ${item.name} (${item.color}, Tam ${item.size}) - ${formatBRL(
+          item.unitPrice * item.qty
+        )}`
+    ),
+    `Forma de envio: ${deliveryType === "pickup" ? "Retirada no Ateliê" : "Entrega / Motoboy"}`,
+    customerName ? `Cliente: ${customerName}` : null,
+    notes ? `Obs: ${notes}` : null,
+    `Total: ${formatBRL(totalAmount)}`,
+  ].filter(Boolean);
+
+  return (
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
+      {/* Cabeçalho da Sacola */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="text-xs text-brand-muted mb-1">
+            Início / <strong className="text-brand-primary">Minha Sacola</strong>
+          </div>
+          <div className="flex items-center gap-3">
+            <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-brand-plum">
+              {descriptor.title}
+            </h1>
+            <Badge variant="blush">{totalCount} itens selecionados</Badge>
+          </div>
+        </div>
+        <Badge variant="neutral">Compra direta sem cadastro • Pedido 100% via WhatsApp</Badge>
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState
+          title="Sua sacola está vazia"
+          description="Explore o catálogo da Menina Mulher para adicionar suas peças favoritas e enviar o pedido pronto pelo WhatsApp."
+          actionLabel="Restaurar Peças de Demonstração"
+          onAction={() => setItems(INITIAL_BAG_ITEMS)}
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8 items-start">
+          {/* Coluna Esquerda: Lista de Itens na Sacola */}
+          <section className="md:col-span-7 space-y-4">
+            <Alert variant="info" title="Seus itens ficam salvos no seu navegador!">
+              Não precisa criar conta nem fazer login. Sua seleção continua esperando por você com
+              todo o carinho.
+            </Alert>
+
+            <div className="space-y-3">
+              {items.map((item) => (
+                <article
+                  key={item.id}
+                  className="bg-brand-surface border border-brand-border rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xs"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-24 rounded-xl bg-brand-soft border border-brand-border flex flex-col items-center justify-center p-2 shrink-0">
+                      <span className="text-[9px] font-bold uppercase text-brand-primary text-center leading-tight mb-1">
+                        {item.tag}
+                      </span>
+                      <span className="font-editorial font-bold text-brand-plum">MM</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <h2 className="font-editorial text-base sm:text-lg font-bold text-brand-plum">
+                        {item.name}
+                      </h2>
+                      <div className="flex items-center gap-2 text-xs text-brand-muted">
+                        <span
+                          className="w-3 h-3 rounded-full border border-brand-border"
+                          style={{ backgroundColor: item.colorHex }}
+                        />
+                        <span>
+                          Cor: <strong className="text-text-primary">{item.color}</strong>
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Tamanho: <strong className="text-text-primary">{item.size}</strong>
+                        </span>
+                      </div>
+
+                      <div className="inline-flex items-center gap-2 bg-brand-soft border border-brand-border rounded-xl p-1 mt-1">
+                        <button
+                          type="button"
+                          aria-label={`Diminuir quantidade de ${item.name}`}
+                          onClick={() => updateItemQty(item.id, -1)}
+                          className="w-7 h-7 rounded-lg bg-brand-surface text-brand-plum inline-flex items-center justify-center cursor-pointer"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="min-w-[24px] text-center text-xs font-bold">
+                          {item.qty}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Aumentar quantidade de ${item.name}`}
+                          onClick={() => updateItemQty(item.id, 1)}
+                          className="w-7 h-7 rounded-lg bg-brand-surface text-brand-plum inline-flex items-center justify-center cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end justify-between self-stretch">
+                    <button
+                      type="button"
+                      aria-label={`Remover ${item.name} da sacola`}
+                      onClick={() => removeItem(item.id)}
+                      className="text-brand-muted hover:text-status-danger p-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <div className="text-right">
+                      {item.qty > 1 && (
+                        <span className="text-[11px] text-brand-muted block">
+                          {item.qty}x {formatBRL(item.unitPrice)}
+                        </span>
+                      )}
+                      <span className="font-editorial text-lg font-bold text-brand-plum">
+                        {formatBRL(item.unitPrice * item.qty)}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {/* Coluna Direita: Resumo do Pedido & Prévia Automática do WhatsApp */}
+          <section className="md:col-span-5 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-brand-border">
+              <h2 className="font-editorial text-xl font-bold text-brand-plum">Resumo do Pedido</h2>
+              <Badge variant="neutral">ETAPA FINAL</Badge>
+            </div>
+
+            <div className="bg-brand-soft/60 rounded-xl p-4 space-y-3 border border-brand-border">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-brand-muted">Subtotal ({totalCount} peças)</span>
+                <strong className="text-text-primary">{formatBRL(totalAmount)}</strong>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-brand-muted">Envio & Entrega</span>
+                <span className="font-bold text-brand-primary">A combinar</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryType("pickup")}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold border cursor-pointer ${
+                    deliveryType === "pickup"
+                      ? "bg-brand-surface border-brand-primary text-brand-primary"
+                      : "bg-brand-surface border-brand-border text-brand-muted"
+                  }`}
+                >
+                  ● Retirada na loja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryType("delivery")}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold border cursor-pointer ${
+                    deliveryType === "delivery"
+                      ? "bg-brand-surface border-brand-primary text-brand-primary"
+                      : "bg-brand-surface border-brand-border text-brand-muted"
+                  }`}
+                >
+                  ○ Entrega / Motoboy
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-brand-border flex items-baseline justify-between">
+                <span className="text-sm font-bold text-brand-plum">Total estimado</span>
+                <span className="font-editorial text-2xl font-bold text-brand-primary">
+                  {formatBRL(totalAmount)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Input
+                label="Seu nome ou apelido (opcional)"
+                placeholder="Ex.: Amanda Ferreira"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                leftIcon={<User className="w-4 h-4" />}
+              />
+              <Input
+                label="Observações do pedido (opcional)"
+                placeholder="Ex.: Embalagem para presente, tirar etiqueta..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            {/* Prévia da Mensagem do WhatsApp (RF08, RF09) */}
+            <div className="bg-status-success-bg/50 border border-status-success/25 rounded-xl p-3.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-status-success">
+                  💬 PRÉVIA DA MENSAGEM DO WHATSAPP
+                </span>
+                <Badge variant="available">Automática</Badge>
+              </div>
+              <pre className="text-xs text-text-primary whitespace-pre-wrap font-sans leading-relaxed">
+                {whatsappMessageLines.join("\n")}
+              </pre>
+            </div>
+
+            <Button
+              variant="primary"
+              fullWidth
+              onClick={() =>
+                window.open(
+                  `https://wa.me/5511987654321?text=${encodeURIComponent(
+                    whatsappMessageLines.join("\n")
+                  )}`,
+                  "_blank"
+                )
+              }
+            >
+              <MessageCircle className="w-4 h-4" />
+              Enviar Pedido pelo WhatsApp
+            </Button>
+
+            <p className="text-[11px] text-brand-muted text-center">
+              🔒 <strong>Nenhum pagamento é cobrado online.</strong> A dona da boutique confirmará
+              as peças em estoque e combinará a entrega no WhatsApp.
+            </p>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * C11 — Tela de Favoritos (/favoritos)
+ */
+function StoreFavoritesScreen({ descriptor }: { descriptor: RouteDescriptor }) {
+  const navigate = useNavigate();
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([
+    "sutia-renda-noir",
+    "calcinha-algodao-doce",
+    "conjunto-microfibra-nude",
+  ]);
+
+  const favoriteProducts = PREVIEW_PRODUCTS.filter((p) => favoriteIds.includes(p.id));
+
+  return (
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs">
+        <div className="flex items-center gap-3">
+          <span className="w-11 h-11 rounded-full bg-brand-blush text-brand-primary inline-flex items-center justify-center shrink-0">
+            <Heart className="w-5 h-5 fill-brand-primary" />
+          </span>
+          <div>
+            <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum">
+              {descriptor.title}
+            </h1>
+            <p className="text-xs sm:text-sm text-brand-muted">
+              Peças que você se apaixonou{" "}
+              <strong className="text-brand-primary">
+                ({favoriteProducts.length} peças salvas neste aparelho)
+              </strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {favoriteProducts.length > 0 ? (
+            <Button variant="secondary" size="sm" onClick={() => setFavoriteIds([])}>
+              Limpar Favoritos
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setFavoriteIds([
+                  "sutia-renda-noir",
+                  "calcinha-algodao-doce",
+                  "conjunto-microfibra-nude",
+                ])
+              }
+            >
+              Restaurar Favoritos
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.store.bag)}>
+            <ShoppingBag className="w-4 h-4" />
+            Adicionar todos à sacola
+          </Button>
+        </div>
+      </div>
+
+      {favoriteProducts.length === 0 ? (
+        <EmptyState
+          title="Sua lista de desejos está vazia"
+          description="Toque no coração das peças que você mais gostar no catálogo para salvá-las aqui."
+          actionLabel="Explorar Coleção"
+          onAction={() => navigate(ROUTES.store.catalog)}
+        />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          {favoriteProducts.map((product) => (
+            <ProductCard
+              key={product.id}
+              id={product.id}
+              name={product.name}
+              category={product.category}
+              subtitle={product.subtitle}
+              price={product.price}
+              installmentText={product.installmentText}
+              sizes={product.sizes}
+              colors={product.colors}
+              badgeText={product.badgeText}
+              stockStatus={product.stockStatus}
+              isFavorite={true}
+              onToggleFavorite={(id) =>
+                setFavoriteIds((prev) => prev.filter((item) => item !== id))
+              }
+              actionLabel="Adicionar à sacola"
+              onAction={() => navigate(ROUTES.store.bag)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * C15 / Desktop Perfil da Cliente (/perfil)
+ */
+function StoreProfileScreen({ descriptor }: { descriptor: RouteDescriptor }) {
+  const navigate = useNavigate();
+
+  return (
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
+      {/* Banner Superior da Cliente VIP */}
+      <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-7 shadow-xs space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="w-16 h-16 rounded-2xl bg-brand-blush text-brand-primary font-editorial text-2xl font-bold inline-flex items-center justify-center shrink-0">
+              MS
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum">
+                  {descriptor.title}
+                </h1>
+                <Badge variant="blush">✨ CLIENTE VIP ENCANTADA</Badge>
+              </div>
+              <p className="text-xs text-brand-muted mt-0.5">
+                Mariana Silva • WhatsApp: (11) 98765-4321 • Cliente desde Nov/2023
+              </p>
+              <p className="text-xs italic text-brand-primary mt-1">
+                “Bem-vinda ao seu refúgio particular Menina Mulher.”
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-brand-soft border border-brand-border rounded-xl px-4 py-2.5">
+              <span className="text-[10px] font-bold uppercase text-brand-muted block">
+                MIMOS VIP
+              </span>
+              <span className="font-editorial text-lg font-bold text-brand-plum">320 pts</span>
+            </div>
+            <div className="bg-brand-soft border border-brand-border rounded-xl px-4 py-2.5">
+              <span className="text-[10px] font-bold uppercase text-brand-muted block">
+                CUPOM ATIVO
+              </span>
+              <span className="font-bold text-sm text-brand-primary">NIVERVIP15</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-brand-border">
+          <div className="bg-brand-soft/60 rounded-xl p-3 flex items-center gap-3">
+            <Heart className="w-5 h-5 text-brand-primary shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-text-primary">3 itens</p>
+              <p className="text-[11px] text-brand-muted">Lista de Desejos</p>
+            </div>
+          </div>
+          <div className="bg-brand-soft/60 rounded-xl p-3 flex items-center gap-3">
+            <ShoppingBag className="w-5 h-5 text-brand-primary shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-text-primary">2 pedidos</p>
+              <p className="text-[11px] text-brand-muted">Concluídos com sucesso</p>
+            </div>
+          </div>
+          <div className="bg-brand-soft/60 rounded-xl p-3 flex items-center gap-3">
+            <Ruler className="w-5 h-5 text-brand-primary shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-text-primary">Tamanho M</p>
+              <p className="text-[11px] text-brand-muted">Medidas conferidas</p>
+            </div>
+          </div>
+          <div className="bg-brand-soft/60 rounded-xl p-3 flex items-center gap-3">
+            <Lock className="w-5 h-5 text-brand-primary shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-text-primary">100% Discreto</p>
+              <p className="text-[11px] text-brand-muted">Envio sigiloso ativado</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Grid de Histórico de Pedidos + Minhas Medidas (2 colunas no Desktop) */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        <section className="md:col-span-7 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-editorial text-xl font-bold text-brand-plum">
+                Histórico de Pedidos
+              </h2>
+              <p className="text-xs text-brand-muted">
+                Acompanhe entregas, comprovantes e recompre favoritos
+              </p>
+            </div>
+            <Badge variant="neutral">2 pedidos</Badge>
+          </div>
+
+          <div className="bg-brand-soft/60 border border-brand-border rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-brand-primary">#1042</span>
+                <h3 className="text-sm font-bold text-text-primary">Pedido de Outubro</h3>
+              </div>
+              <Badge variant="available" dot>
+                Entregue em Jardins, SP
+              </Badge>
+            </div>
+            <p className="text-xs text-brand-muted">
+              Sutiã Noir Renda (Tam 42) + Robe Seda Soft + Conjunto Merlot (Tam M)
+            </p>
+            <div className="pt-2 border-t border-brand-border flex flex-wrap items-center justify-between gap-2">
+              <span className="font-editorial text-lg font-bold text-brand-plum">R$ 289,90</span>
+              <div className="flex items-center gap-2">
+                <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.store.bag)}>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Repetir Pedido
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-brand-soft/60 border border-brand-border rounded-2xl p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-brand-muted">#1021</span>
+                <h3 className="text-sm font-bold text-text-primary">
+                  Kit 2x Calcinhas Renda Chantilly
+                </h3>
+              </div>
+              <span className="font-bold text-sm text-text-primary">R$ 178,00</span>
+            </div>
+            <p className="text-xs text-brand-muted">Tamanho M • Cor Rosa Chá & Off-white</p>
+          </div>
+        </section>
+
+        <section className="md:col-span-5 space-y-4">
+          <div className="bg-brand-surface border border-brand-border rounded-2xl p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-editorial text-lg font-bold text-brand-plum">Minhas Medidas</h2>
+              <Badge variant="blush">✓ Verificado</Badge>
+            </div>
+            <p className="text-xs text-brand-muted">
+              Usamos estes dados para sugerir o tamanho ideal em cada modelagem:
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
+                <span className="text-[10px] font-bold uppercase text-brand-muted block">
+                  BUSTO & COSTAS
+                </span>
+                <p className="font-editorial text-lg font-bold text-brand-plum">42 / M</p>
+                <span className="text-[11px] text-brand-muted">~92 cm busto</span>
+              </div>
+              <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
+                <span className="text-[10px] font-bold uppercase text-brand-muted block">
+                  QUADRIL & CINTURA
+                </span>
+                <p className="font-editorial text-lg font-bold text-brand-plum">M / 98cm</p>
+                <span className="text-[11px] text-brand-muted">Modelagem regular</span>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              fullWidth
+              onClick={() => navigate(ROUTES.store.sizeGuide)}
+            >
+              <Ruler className="w-4 h-4" />
+              Abrir Guia “Como Medir”
+            </Button>
+          </div>
+
+          <div className="bg-brand-blush/40 border border-brand-border rounded-2xl p-5 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Gift className="w-5 h-5 text-brand-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-brand-plum">
+                  Você está a 1 compra de um Mimo Surpresa
+                </p>
+                <p className="text-xs text-brand-muted">
+                  Complete seu próximo pedido pelo WhatsApp para resgatar.
+                </p>
+              </div>
+            </div>
+            <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.store.catalog)}>
+              Ver Coleção
+            </Button>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * RF10 — Guia de Medidas e Tamanhos (/guia-medidas)
+ */
+function StoreSizeGuideScreen({ descriptor }: { descriptor: RouteDescriptor }) {
+  const navigate = useNavigate();
+
+  const sizeRows = [
+    {
+      size: "P",
+      num: "38 / 40",
+      bust: "82 – 87 cm",
+      underbust: "68 – 72 cm",
+      waist: "64 – 70 cm",
+      hip: "88 – 94 cm",
+    },
+    {
+      size: "M",
+      num: "42",
+      bust: "88 – 93 cm",
+      underbust: "73 – 77 cm",
+      waist: "71 – 77 cm",
+      hip: "95 – 101 cm",
+    },
+    {
+      size: "G",
+      num: "44",
+      bust: "94 – 99 cm",
+      underbust: "78 – 82 cm",
+      waist: "78 – 85 cm",
+      hip: "102 – 108 cm",
+    },
+    {
+      size: "GG",
+      num: "46 / 48",
+      bust: "100 – 106 cm",
+      underbust: "83 – 88 cm",
+      waist: "86 – 94 cm",
+      hip: "109 – 116 cm",
+    },
+  ];
+
+  return (
+    <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
+      <section className="bg-brand-surface border border-brand-border rounded-2xl p-6 sm:p-8 shadow-xs space-y-4">
+        <Badge variant="blush">CAIMENTO PERFEITO • RF10</Badge>
+        <h1 className="font-editorial text-2xl sm:text-3xl md:text-4xl font-bold text-brand-plum">
+          {descriptor.title}
+        </h1>
+        <p className="text-sm sm:text-base text-text-secondary max-w-2xl">
+          {descriptor.subtitle} Compare suas medidas em centímetros para escolher seu sutiã,
+          calcinha ou conjunto com total segurança.
+        </p>
+
+        {/* Tabela de Medidas Responsiva */}
+        <div className="overflow-x-auto pt-2">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-brand-border bg-brand-soft text-xs font-bold uppercase tracking-wider text-brand-plum">
+                <th className="py-3 px-4 rounded-tl-xl">Tamanho</th>
+                <th className="py-3 px-4">Numeração</th>
+                <th className="py-3 px-4">Busto</th>
+                <th className="py-3 px-4">Tórax (Sub-busto)</th>
+                <th className="py-3 px-4">Cintura</th>
+                <th className="py-3 px-4 rounded-tr-xl">Quadril</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-border text-xs sm:text-sm">
+              {sizeRows.map((row) => (
+                <tr key={row.size} className="hover:bg-brand-soft/50">
+                  <td className="py-3.5 px-4 font-bold text-brand-primary">{row.size}</td>
+                  <td className="py-3.5 px-4 font-semibold text-text-primary">{row.num}</td>
+                  <td className="py-3.5 px-4 text-text-secondary">{row.bust}</td>
+                  <td className="py-3.5 px-4 text-text-secondary">{row.underbust}</td>
+                  <td className="py-3.5 px-4 text-text-secondary">{row.waist}</td>
+                  <td className="py-3.5 px-4 text-text-secondary">{row.hip}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Como tirar suas medidas (3 cards) */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-brand-surface border border-brand-border rounded-2xl p-5 space-y-2 shadow-xs">
+          <Badge variant="brand">Passo 1</Badge>
+          <h2 className="font-editorial text-lg font-bold text-brand-plum">Busto & Tórax</h2>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Passe a fita métrica na parte mais saliente dos seios sem apertar. Em seguida, meça logo
+            abaixo do busto (contorno do tórax).
+          </p>
+        </div>
+        <div className="bg-brand-surface border border-brand-border rounded-2xl p-5 space-y-2 shadow-xs">
+          <Badge variant="brand">Passo 2</Badge>
+          <h2 className="font-editorial text-lg font-bold text-brand-plum">Cintura Natural</h2>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Meça a circunferência na parte mais fina do abdômen, aproximadamente dois dedos acima do
+            umbigo.
+          </p>
+        </div>
+        <div className="bg-brand-surface border border-brand-border rounded-2xl p-5 space-y-2 shadow-xs">
+          <Badge variant="brand">Passo 3</Badge>
+          <h2 className="font-editorial text-lg font-bold text-brand-plum">Quadril</h2>
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Contorne a fita na região mais larga dos glúteos para garantir que a renda da calcinha
+            abrace sem marcar.
+          </p>
+        </div>
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-brand-soft border border-brand-border rounded-2xl p-5">
+        <p className="text-xs sm:text-sm text-brand-plum font-medium">
+          Ficou entre dois tamanhos? Nossa renda possui elastano macio que se adapta perfeitamente.
+        </p>
+        <div className="flex items-center gap-2.5">
+          <Button variant="secondary" size="sm" onClick={() => navigate(ROUTES.store.catalog)}>
+            Voltar ao Catálogo
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => window.open("https://wa.me/5511987654321", "_blank")}
+          >
+            <MessageCircle className="w-4 h-4" />
+            Tirar Dúvida no WhatsApp
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StoreRouteDispatcher({ descriptor }: { descriptor: RouteDescriptor }) {
+  const location = useLocation();
+
+  if (location.pathname.startsWith("/catalogo") || location.pathname.startsWith("/categoria/")) {
+    return <StoreCatalogScreen descriptor={descriptor} />;
+  }
+  if (location.pathname.startsWith("/produto/")) {
+    return <StoreProductDetailScreen descriptor={descriptor} />;
+  }
+  if (location.pathname.startsWith("/sacola")) {
+    return <StoreBagScreen descriptor={descriptor} />;
+  }
+  if (location.pathname.startsWith("/favoritos")) {
+    return <StoreFavoritesScreen descriptor={descriptor} />;
+  }
+  if (location.pathname.startsWith("/perfil")) {
+    return <StoreProfileScreen descriptor={descriptor} />;
+  }
+  if (location.pathname.startsWith("/guia-medidas")) {
+    return <StoreSizeGuideScreen descriptor={descriptor} />;
+  }
+  return <StoreHomeScreen descriptor={descriptor} />;
+}
+
+/* ============================================================================
+ * TELAS DO PAINEL DA EMPRESÁRIA (/painel/*)
+ * ============================================================================ */
+
 function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const location = useLocation();
   const [selectedOrderId, setSelectedOrderId] = useState<string>("#1042");
@@ -646,7 +1831,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Cabeçalho de Gestão de Pedidos */}
       <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -682,9 +1866,7 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </Alert>
       </section>
 
-      {/* Visão Master-Detail: 1 coluna no Mobile (< 768px), 2 colunas (5 + 7) no Desktop (>= 768px) */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        {/* Coluna Esquerda: Lista de Pedidos */}
         <section className="md:col-span-5 space-y-3">
           <div className="bg-brand-surface border border-brand-border rounded-2xl p-3 space-y-3">
             <div className="grid grid-cols-3 gap-1 bg-brand-soft p-1 rounded-xl text-xs font-semibold text-center">
@@ -701,7 +1883,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             />
           </div>
 
-          {/* Card #1042 */}
           <div
             onClick={() => setSelectedOrderId("#1042")}
             className={`bg-brand-surface rounded-2xl p-4 shadow-xs cursor-pointer transition-colors ${
@@ -731,7 +1912,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             </div>
           </div>
 
-          {/* Card #1040 */}
           <div
             onClick={() => setSelectedOrderId("#1040")}
             className={`bg-brand-surface rounded-2xl p-4 shadow-xs cursor-pointer transition-colors ${
@@ -759,7 +1939,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             </div>
           </div>
 
-          {/* Card #1039 */}
           <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 shadow-xs">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
@@ -776,7 +1955,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
           </div>
         </section>
 
-        {/* Coluna Direita: Detalhes do Pedido Selecionado */}
         <section className="md:col-span-7 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-brand-border">
             <div>
@@ -802,7 +1980,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             </Button>
           </div>
 
-          {/* Dados da Cliente & Entrega (2 colunas no Desktop) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-brand-soft/60 border border-brand-border rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
@@ -846,7 +2023,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             </div>
           </div>
 
-          {/* Peças Selecionadas com Impacto no Estoque */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -911,7 +2087,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             </div>
           </div>
 
-          {/* Rodapé de Totais e Ações */}
           <div className="pt-4 border-t border-brand-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-xs text-brand-muted block">
@@ -933,7 +2108,6 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </section>
       </div>
 
-      {/* Modal de Confirmação de Pedido & Baixa no Estoque */}
       <Modal
         isOpen={isConfirmModalOpen}
         onClose={() => setIsConfirmModalOpen(false)}
@@ -977,15 +2151,12 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   );
 }
 
-/**
- * 2. Tela de Catálogo e Cadastro de Produtos (/painel/produtos, /painel/produtos/novo, /painel/produtos/:id/editar)
- */
 function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const params = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("Todos");
+  const [selectedFilter, setSelectedFilter] = useState("Todos (48)");
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   const filteredCatalog = ADMIN_CATALOG_PRODUCTS.filter((item) =>
@@ -994,7 +2165,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Cabeçalho de Catálogo de Produtos */}
       <section className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -1020,7 +2190,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </div>
       </section>
 
-      {/* 4 Cards de Indicadores (KPIs do Protótipo Desktop) */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between shadow-xs">
           <div>
@@ -1083,7 +2252,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </div>
       </section>
 
-      {/* Barra de Busca e Filtros do Catálogo */}
       <section className="bg-brand-surface border border-brand-border rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="w-full md:w-80">
@@ -1120,14 +2288,12 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
           </div>
         </div>
 
-        {/* Lista / Tabela Responsiva de Produtos */}
         <div className="divide-y divide-brand-border">
           {filteredCatalog.map((item) => (
             <div
               key={item.id}
               className="py-4 flex flex-col md:grid md:grid-cols-12 gap-4 items-start md:items-center"
             >
-              {/* Coluna 1: Produto & SKU */}
               <div className="md:col-span-4 flex items-center gap-3">
                 <div className="w-14 h-14 rounded-xl bg-brand-soft border border-brand-border flex items-center justify-center font-editorial font-bold text-brand-plum shrink-0">
                   MM
@@ -1141,13 +2307,11 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
                 </div>
               </div>
 
-              {/* Coluna 2: Categoria */}
               <div className="md:col-span-2">
                 <p className="text-xs font-bold text-text-primary">{item.category}</p>
                 <p className="text-[11px] text-brand-muted">{item.collection}</p>
               </div>
 
-              {/* Coluna 3: Preço */}
               <div className="md:col-span-2">
                 <span className="text-sm font-bold text-text-primary">{item.price}</span>
                 {item.originalPrice && (
@@ -1158,7 +2322,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
                 <p className="text-[11px] text-brand-primary font-medium">{item.promo}</p>
               </div>
 
-              {/* Coluna 4: Grade de Tamanhos */}
               <div className="md:col-span-2 space-y-1">
                 <p className="text-xs font-bold text-text-primary">{item.totalUnits}</p>
                 <div className="flex flex-wrap gap-1">
@@ -1177,7 +2340,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
                 </div>
               </div>
 
-              {/* Coluna 5: Status & Ações */}
               <div className="md:col-span-2 flex items-center justify-between md:justify-end gap-2 w-full">
                 <Badge variant={item.status} dot>
                   {item.statusLabel}
@@ -1196,12 +2358,11 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </div>
       </section>
 
-      {/* Modal de Cadastro / Edição Rápida de Produto */}
       <Modal
         isOpen={isNewModalOpen}
         onClose={() => setIsNewModalOpen(false)}
         subtitle="CATÁLOGO MENINA MULHER"
-        title={params.id ? "Editar Produto" : "Cadastrar Novo Produto"}
+        title="Ficha da Peça"
         description="Preencha os dados da peça, preço e grade inicial de tamanhos e cores."
         footer={
           <>
@@ -1226,9 +2387,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   );
 }
 
-/**
- * 3. Tela de Controle de Estoque Gerencial (/painel/estoque)
- */
 function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const location = useLocation();
   const [stockGroups, setStockGroups] = useState<StockProductGroup[]>(INITIAL_STOCK_GROUPS);
@@ -1264,7 +2422,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {/* Aviso de Sincronização em Tempo Real */}
       {lastUpdatedText && (
         <Alert
           variant="success"
@@ -1275,7 +2432,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </Alert>
       )}
 
-      {/* Cabeçalho do Controle de Estoque */}
       <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-brand-primary block">
@@ -1295,7 +2451,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </div>
       </section>
 
-      {/* 4 KPI Cards de Estoque (Conforme Protótipo Desktop) */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
@@ -1336,7 +2491,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </div>
       </section>
 
-      {/* Barra de Busca e Ações Rápidas de Estoque */}
       <section className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex flex-col md:flex-row md:items-end justify-between gap-4 shadow-xs">
         <div className="w-full md:w-80">
           <Input
@@ -1360,7 +2514,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         </div>
       </section>
 
-      {/* Grupos de Produtos e Variações com Ajuste Rápido (- / +) */}
       <div className="space-y-5">
         {filteredGroups.map((group) => {
           const totalUnits = group.variations.reduce((acc, item) => acc + item.qty, 0);
@@ -1440,7 +2593,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
                           {statusLabel}
                         </Badge>
 
-                        {/* Controles de Ajuste de Estoque (- / +) */}
                         <div className="inline-flex items-center gap-2 bg-brand-soft border border-brand-border rounded-xl p-1">
                           <button
                             type="button"
@@ -1475,9 +2627,6 @@ function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   );
 }
 
-/**
- * 4. Tela de Login do Painel (/painel/login)
- */
 function AdminLoginScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("proprietaria@meninamulher.com.br");
@@ -1556,7 +2705,7 @@ export function AppRoutes() {
           <Route
             key={descriptor.path}
             path={descriptor.path}
-            element={<StoreRoutePlaceholder descriptor={descriptor} />}
+            element={<StoreRouteDispatcher descriptor={descriptor} />}
           />
         ))}
       </Route>
