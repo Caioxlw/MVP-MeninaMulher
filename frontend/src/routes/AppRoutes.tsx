@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
-  Star,
   Trash2,
   Truck,
   User,
@@ -39,6 +38,7 @@ import {
   type ProductStockStatus,
 } from "../components/ui";
 import { AdminStockScreen } from "../pages/admin/AdminStockScreen";
+import { StoreProductDetailScreen } from "../pages/store/StoreProductDetailScreen";
 import {
   ADMIN_ROUTE_DESCRIPTORS,
   ROUTES,
@@ -809,247 +809,6 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
 }
 
 /**
- * C05 / Desktop Detalhes do Produto (/produto/:id)
- */
-function StoreProductDetailScreen({ descriptor }: { descriptor: RouteDescriptor }) {
-  const params = useParams();
-  const navigate = useNavigate();
-  const product = PREVIEW_PRODUCTS.find((p) => p.id === params.id) ?? PREVIEW_PRODUCTS[0];
-
-  const [selectedColor, setSelectedColor] = useState("Preto");
-  const [selectedSize, setSelectedSize] = useState("P");
-  const [qty, setQty] = useState(1);
-  const [addedFeedback, setAddedFeedback] = useState(false);
-
-  const sizeStock = [
-    { size: "P", units: 4, available: true },
-    { size: "M", units: 3, available: true },
-    { size: "G", units: 0, available: false },
-  ];
-
-  return (
-    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-10">
-      {/* Trilha de Navegação + Título da Rota */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs text-brand-muted flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => navigate(ROUTES.store.home)}
-            className="hover:text-brand-primary cursor-pointer"
-          >
-            Home
-          </button>
-          <span>›</span>
-          <span>{product.category}</span>
-          <span>›</span>
-          <span className="font-semibold text-brand-primary">{product.name}</span>
-        </div>
-        <Badge variant="blush">{descriptor.title}</Badge>
-      </div>
-
-      {addedFeedback && (
-        <Alert
-          variant="success"
-          title="Adicionado à sacola!"
-          onClose={() => setAddedFeedback(false)}
-        >
-          {product.name} ({selectedColor}, Tam {selectedSize}) foi salvo na sua sacola.{" "}
-          <button
-            type="button"
-            onClick={() => navigate(ROUTES.store.bag)}
-            className="font-bold underline text-brand-primary ml-2 cursor-pointer"
-          >
-            Ir para a Sacola →
-          </button>
-        </Alert>
-      )}
-
-      {/* Grid Principal do Produto: Galeria à Esquerda + Seleção à Direita */}
-      <section className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
-        {/* Galeria de Fotos */}
-        <div className="md:col-span-6 space-y-3">
-          <div className="aspect-3/4 rounded-2xl bg-brand-soft border border-brand-border p-6 flex flex-col justify-between relative shadow-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1.5">
-                <Badge variant="blush">MAIS VENDIDO</Badge>
-                <Badge variant="brand">Exclusivo</Badge>
-              </div>
-              <Badge variant="neutral">REF: MM-78401</Badge>
-            </div>
-
-            <div className="my-auto text-center space-y-2 py-12">
-              <span className="w-20 h-20 rounded-full bg-brand-blush text-brand-primary font-editorial text-3xl font-bold inline-flex items-center justify-center shadow-xs">
-                MM
-              </span>
-              <p className="font-editorial text-2xl font-bold text-brand-plum">{product.name}</p>
-              <p className="text-xs text-brand-muted">{product.subtitle}</p>
-            </div>
-
-            <div className="bg-brand-surface/90 backdrop-blur-xs rounded-xl p-3 border border-brand-border flex items-center justify-between text-xs text-brand-muted">
-              <span>✨ Renda francesa antialérgica com toque macio</span>
-              <span className="font-bold text-brand-plum">Cor: {selectedColor}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Coluna Direita: Preço, Cores, Tamanhos, Quantidade e Ações */}
-        <div className="md:col-span-6 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-7 shadow-xs space-y-5">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-muted">
-                {product.category}
-              </span>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary">
-                <Star className="w-3.5 h-3.5 fill-brand-primary" /> 4.9 (38 avaliações)
-              </span>
-            </div>
-            <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum">
-              {product.name}
-            </h1>
-            <div className="flex items-baseline gap-2.5 pt-1">
-              <span className="font-editorial text-2xl sm:text-3xl font-bold text-brand-primary">
-                {formatBRL(product.price)}
-              </span>
-              <span className="text-xs text-brand-muted">{product.installmentText}</span>
-            </div>
-          </div>
-
-          {/* Seletor de Cor */}
-          <div className="bg-brand-soft/60 border border-brand-border rounded-xl p-4 space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-brand-muted">
-                Cor selecionada: <strong className="text-text-primary">{selectedColor}</strong>
-              </span>
-              <span className="text-brand-muted">3 opções</span>
-            </div>
-            <div className="flex items-center gap-3">
-              {[
-                { name: "Preto", hex: "#23101B" },
-                { name: "Grafite", hex: "#6F4F64" },
-                { name: "Rosé", hex: "#F5CCD0" },
-              ].map((c) => (
-                <button
-                  key={c.name}
-                  type="button"
-                  onClick={() => setSelectedColor(c.name)}
-                  aria-label={`Selecionar cor ${c.name}`}
-                  className={`w-9 h-9 rounded-full border-2 cursor-pointer transition-transform ${
-                    selectedColor === c.name
-                      ? "border-brand-primary scale-110"
-                      : "border-brand-border"
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Seletor de Tamanho com Disponibilidade em Estoque (RF04, RF05) */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-brand-muted">
-                Tamanho: <strong className="text-text-primary">{selectedSize}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => navigate(ROUTES.store.sizeGuide)}
-                className="inline-flex items-center gap-1 font-bold text-brand-primary hover:underline cursor-pointer"
-              >
-                <Ruler className="w-3.5 h-3.5" /> Guia de Medidas
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2.5">
-              {sizeStock.map((item) => (
-                <button
-                  key={item.size}
-                  type="button"
-                  disabled={!item.available}
-                  onClick={() => setSelectedSize(item.size)}
-                  className={`touch-target rounded-xl border p-2.5 flex flex-col items-center justify-center transition-colors ${
-                    !item.available
-                      ? "bg-brand-soft border-brand-border text-brand-muted opacity-55 cursor-not-allowed"
-                      : selectedSize === item.size
-                        ? "bg-brand-plum text-white border-brand-plum shadow-xs cursor-pointer"
-                        : "bg-brand-surface text-text-primary border-brand-border hover:border-brand-primary cursor-pointer"
-                  }`}
-                >
-                  <span className="text-sm font-bold">{item.size}</span>
-                  <span className="text-[10px] opacity-85">
-                    {item.available ? `${item.units} un.` : "Esgotado"}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <p className="text-xs font-semibold text-brand-primary flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-brand-primary" />
-              Em estoque para envio imediato (Tamanho {selectedSize} disponível)
-            </p>
-          </div>
-
-          {/* Quantidade + Botão Adicionar à Sacola */}
-          <div className="flex items-center gap-3 pt-1">
-            <div className="inline-flex items-center bg-brand-soft border border-brand-border rounded-xl p-1">
-              <button
-                type="button"
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
-                className="w-9 h-9 rounded-lg text-brand-plum hover:bg-brand-surface inline-flex items-center justify-center cursor-pointer"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="min-w-[32px] text-center text-sm font-bold">{qty}</span>
-              <button
-                type="button"
-                onClick={() => setQty((q) => q + 1)}
-                className="w-9 h-9 rounded-lg text-brand-plum hover:bg-brand-surface inline-flex items-center justify-center cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-
-            <Button variant="primary" fullWidth onClick={() => setAddedFeedback(true)}>
-              <ShoppingBag className="w-4 h-4" />
-              Adicionar à sacola
-            </Button>
-          </div>
-
-          {/* Detalhes Técnicos & Composição */}
-          <div className="pt-4 border-t border-brand-border space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-brand-primary">
-              ✨ Detalhes do Produto & Tecido
-            </h2>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              Confeccionado com toque suave e design anatômico que valoriza as formas naturais do
-              corpo sem comprimir. Renda francesa antialérgica com acabamento macio e suporte
-              delicado.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
-                <span className="text-[10px] font-bold uppercase text-brand-muted block">
-                  COMPOSIÇÃO
-                </span>
-                <span className="text-xs font-bold text-text-primary">
-                  90% Poliamida, 10% Elastano
-                </span>
-              </div>
-              <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
-                <span className="text-[10px] font-bold uppercase text-brand-muted block">
-                  FECHAMENTO
-                </span>
-                <span className="text-xs font-bold text-text-primary">
-                  Colchete duplo com 3 regulagens
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-/**
  * C09 / Desktop Sacola de Compras (/sacola)
  */
 function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) {
@@ -1733,7 +1492,7 @@ function StoreRouteDispatcher({ descriptor }: { descriptor: RouteDescriptor }) {
     return <StoreCatalogScreen descriptor={descriptor} />;
   }
   if (location.pathname.startsWith("/produto/")) {
-    return <StoreProductDetailScreen descriptor={descriptor} />;
+    return <StoreProductDetailScreen descriptor={descriptor} products={PREVIEW_PRODUCTS} />;
   }
   if (location.pathname.startsWith("/sacola")) {
     return <StoreBagScreen descriptor={descriptor} />;
