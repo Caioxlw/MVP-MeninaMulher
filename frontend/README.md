@@ -135,3 +135,12 @@ import { EmptyState } from "./components/ui";
   - **Ajuste Rápido (`-` / `+`)**: Botões acessíveis de no mínimo `44x44 px` (`RNF07`) com bloqueio automático de estoque negativo (`stock >= 0`, `RNF09`).
   - **Cadastro, Edição e Exclusão de Variações (`RF04`, `RF13`, `US10`)**: Normalização de tamanho em `UPPERCASE`, prevenção de duplicidade `(produto, tamanho, cor)` _case-insensitive_ e proteção contra exclusão de variações vinculadas a pedidos.
   - **Busca, Filtros por Status e Exportação CSV**: Filtros rápidos (`Todas`, `Estoque Regular`, `Baixo Estoque`, `Esgotadas`) e geração de planilha auditável.
+
+## Disponibilidade por Variação e Bloqueio de Esgotados (`/produto/:id` — PBI #97)
+
+- **Tela da Loja**: `src/pages/store/StoreProductDetailScreen.tsx`
+- **Serviço de Disponibilidade**: `src/services/availability.ts`
+- **Funcionalidades (`RF04`, `RF05`, `RNF01`, `RNF07`, `US03`)**:
+  - **Etiquetas Textuais Acessíveis**: Indica claramente `Disponível`, `Últimas unidades` ou `Esgotado` em cada opção de cor e tamanho, sem depender apenas de cor (`RNF07`).
+  - **Bloqueio de Variações Esgotadas (`RF05`)**: Cores e tamanhos com `stock === 0` recebem `disabled` e `aria-disabled="true"` (com área mínima de `44x44 px`), impedindo sua seleção e bloqueando o botão **"Adicionar à sacola"** quando a peça está esgotada.
+  - **Trava de Quantidade pelo Estoque**: O seletor `-` / `+` limita a quantidade máxima selecionável pela cliente ao saldo disponível da variação escolhida.
