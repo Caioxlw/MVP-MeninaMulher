@@ -125,3 +125,13 @@ import { EmptyState } from "./components/ui";
   onAction={() => navigate("/catalogo")}
 />;
 ```
+
+## Gestão de Variações e Ajuste de Estoque (`/painel/estoque` — PBI #96)
+
+- **Tela Administrativa**: `src/pages/admin/AdminStockScreen.tsx`
+- **Serviço de Integração REST**: `src/services/stockApi.ts` (`/api/products/:productId/variants`)
+- **Funcionalidades**:
+  - **KPIs Dinâmicos**: Total de peças físicas, variações em alerta de baixo estoque (`<= 2 un.`), variações esgotadas (`0 un.`) e valor estimado em estoque.
+  - **Ajuste Rápido (`-` / `+`)**: Botões acessíveis de no mínimo `44x44 px` (`RNF07`) com bloqueio automático de estoque negativo (`stock >= 0`, `RNF09`).
+  - **Cadastro, Edição e Exclusão de Variações (`RF04`, `RF13`, `US10`)**: Normalização de tamanho em `UPPERCASE`, prevenção de duplicidade `(produto, tamanho, cor)` _case-insensitive_ e proteção contra exclusão de variações vinculadas a pedidos.
+  - **Busca, Filtros por Status e Exportação CSV**: Filtros rápidos (`Todas`, `Estoque Regular`, `Baixo Estoque`, `Esgotadas`) e geração de planilha auditável.
