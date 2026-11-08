@@ -6,7 +6,6 @@ import {
   Gift,
   Heart,
   Lock,
-  Mail,
   MapPin,
   MessageCircle,
   Minus,
@@ -25,7 +24,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { AdminLayout } from "../components/layout/AdminLayout";
 import { StoreLayout } from "../components/layout/StoreLayout";
 import {
   Alert,
@@ -37,6 +35,7 @@ import {
   ProductCard,
   type ProductStockStatus,
 } from "../components/ui";
+import { AdminLoginScreen, ProtectedAdminRoute } from "../pages/admin/AdminLoginScreen";
 import { AdminStockScreen } from "../pages/admin/AdminStockScreen";
 import { StoreProductDetailScreen } from "../pages/store/StoreProductDetailScreen";
 import {
@@ -2077,60 +2076,6 @@ function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   );
 }
 
-function AdminLoginScreen({ descriptor }: { descriptor: RouteDescriptor }) {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("proprietaria@meninamulher.com.br");
-
-  return (
-    <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-12 bg-brand-surface border border-brand-border rounded-2xl overflow-hidden shadow-xs">
-        <div className="md:col-span-5 bg-brand-soft p-6 md:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-brand-border">
-          <div>
-            <Badge variant="blush" className="mb-3">
-              ACESSO RESTRITO
-            </Badge>
-            <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum mb-2">
-              {descriptor.title}
-            </h1>
-            <p className="text-xs sm:text-sm text-brand-muted leading-relaxed">
-              {descriptor.subtitle}
-            </p>
-          </div>
-          <div className="pt-6 text-xs text-brand-muted flex items-center gap-2">
-            <Lock className="w-4 h-4 text-brand-primary" />
-            Ambiente administrativo protegido (RNF05)
-          </div>
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            navigate(ROUTES.admin.orders);
-          }}
-          className="md:col-span-7 p-6 md:p-8 space-y-4"
-        >
-          <Input
-            label="E-mail ou Usuário"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            leftIcon={<Mail className="w-4 h-4" />}
-          />
-          <Input
-            label="Senha de Acesso"
-            type="password"
-            defaultValue="••••••••"
-            rightLabel="Esqueci a senha"
-            leftIcon={<Lock className="w-4 h-4" />}
-          />
-          <Button type="submit" variant="primary" fullWidth>
-            Entrar no Painel
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 function AdminRouteDispatcher({ descriptor }: { descriptor: RouteDescriptor }) {
   const location = useLocation();
 
@@ -2140,13 +2085,17 @@ function AdminRouteDispatcher({ descriptor }: { descriptor: RouteDescriptor }) {
   if (location.pathname.startsWith("/painel/produtos")) {
     return <AdminProductsScreen descriptor={descriptor} />;
   }
-  if (location.pathname.startsWith("/painel/login")) {
-    return <AdminLoginScreen descriptor={descriptor} />;
-  }
   return <AdminOrdersScreen descriptor={descriptor} />;
 }
 
 export function AppRoutes() {
+  const loginDescriptor =
+    ADMIN_ROUTE_DESCRIPTORS.find((d) => d.path === ROUTES.admin.login) ??
+    ADMIN_ROUTE_DESCRIPTORS[0];
+  const protectedAdminDescriptors = ADMIN_ROUTE_DESCRIPTORS.filter(
+    (d) => d.path !== ROUTES.admin.login
+  );
+
   return (
     <Routes>
       {/* Rotas Públicas da Loja com StoreLayout */}
@@ -2160,12 +2109,18 @@ export function AppRoutes() {
         ))}
       </Route>
 
+      {/* Rota Pública de Login da Empresária (/painel/login) */}
+      <Route
+        path={ROUTES.admin.login}
+        element={<AdminLoginScreen descriptor={loginDescriptor} />}
+      />
+
       {/* Rota base do Painel redireciona para Gestão de Pedidos */}
       <Route path={ROUTES.admin.root} element={<Navigate to={ROUTES.admin.orders} replace />} />
 
-      {/* Rotas do Painel da Empresária (/painel/*) com AdminLayout */}
-      <Route element={<AdminLayout />}>
-        {ADMIN_ROUTE_DESCRIPTORS.map((descriptor) => (
+      {/* Rotas Privadas do Painel da Empresária (/painel/*) protegidas por ProtectedAdminRoute */}
+      <Route element={<ProtectedAdminRoute />}>
+        {protectedAdminDescriptors.map((descriptor) => (
           <Route
             key={descriptor.path}
             path={descriptor.path}
