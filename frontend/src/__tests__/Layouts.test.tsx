@@ -1,13 +1,19 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AdminLayout } from "../components/layout/AdminLayout";
 import { StoreLayout } from "../components/layout/StoreLayout";
 import { AppRoutes } from "../routes/AppRoutes";
 import { ROUTES } from "../routes/routes.config";
+import { clearAdminSession, seedDemoAdminSession } from "../services/authApi";
 
 describe("Task #114 — Layouts Responsivos da Loja e do Painel Administrativo", () => {
+  beforeEach(() => {
+    seedDemoAdminSession();
+  });
+
   afterEach(() => {
+    clearAdminSession();
     cleanup();
   });
   it("deve renderizar o cabeçalho da loja com menu, busca, favoritos e sacola com contador, além do rodapé", () => {

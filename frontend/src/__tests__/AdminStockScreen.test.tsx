@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AppRoutes } from "../routes/AppRoutes";
+import { clearAdminSession, seedDemoAdminSession } from "../services/authApi";
 import {
   buildVariantSku,
   clampNonNegativeStock,
@@ -20,8 +21,13 @@ function renderStockPage() {
 }
 
 describe("Gestão de Variações e Ajuste de Estoque (PBI #96)", () => {
+  beforeEach(() => {
+    seedDemoAdminSession();
+  });
+
   afterEach(() => {
     cleanup();
+    clearAdminSession();
   });
 
   it("normaliza tamanho e cor, gera SKU e impede estoque negativo no stockApi (RNF09)", () => {

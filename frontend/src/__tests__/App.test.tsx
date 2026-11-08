@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { AppRoutes } from "../routes/AppRoutes";
 import { ROUTES } from "../routes/routes.config";
+import { clearAdminSession, seedDemoAdminSession } from "../services/authApi";
 import { theme } from "../styles/theme";
 
 describe("Task #113 — Tema Menina Mulher e Estrutura de Rotas (Loja e Painel)", () => {
   beforeEach(() => {
+    seedDemoAdminSession();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -32,6 +34,7 @@ describe("Task #113 — Tema Menina Mulher e Estrutura de Rotas (Loja e Painel)"
 
   afterEach(() => {
     cleanup();
+    clearAdminSession();
     vi.unstubAllGlobals();
   });
 
