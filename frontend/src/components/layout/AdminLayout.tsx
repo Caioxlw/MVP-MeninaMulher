@@ -1,7 +1,8 @@
 import { Archive, LogOut, Package, ShoppingBag } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../routes/routes.config";
+import { clearAdminSession, getAdminSession } from "../../services/authApi";
 
 export interface AdminLayoutProps {
   children?: ReactNode;
@@ -19,6 +20,13 @@ interface AdminNavSection {
 
 export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const session = getAdminSession();
+
+  const handleLogout = () => {
+    clearAdminSession();
+    navigate(ROUTES.admin.login, { replace: true });
+  };
 
   const sections: AdminNavSection[] = [
     {
@@ -108,13 +116,15 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
 
         {/* Rodapé da Sidebar: Sair do Painel */}
         <div className="p-4 border-t border-brand-border">
-          <Link
-            to={ROUTES.admin.login}
-            className="touch-target flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-text-secondary hover:bg-brand-surface hover:text-brand-primary no-underline transition-colors"
+          <button
+            type="button"
+            data-testid="admin-sidebar-logout"
+            onClick={handleLogout}
+            className="w-full touch-target flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-text-secondary hover:bg-brand-surface hover:text-brand-primary cursor-pointer transition-colors"
           >
             <LogOut className="w-4 h-4" />
             <span>Sair do Painel</span>
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -159,9 +169,22 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
                 MM
               </span>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-text-primary leading-tight">Proprietária MM</p>
-                <p className="text-[11px] text-brand-muted">Empresária & Vendedora</p>
+                <p className="text-xs font-bold text-text-primary leading-tight">
+                  {session?.user.name ?? "Proprietária MM"}
+                </p>
+                <p className="text-[11px] text-brand-muted">
+                  {session?.user.email ?? "Empresária & Vendedora"}
+                </p>
               </div>
+              <button
+                type="button"
+                data-testid="admin-mobile-logout"
+                aria-label="Sair do Painel"
+                onClick={handleLogout}
+                className="md:hidden min-w-11 min-h-11 rounded-xl border border-brand-border bg-brand-soft text-brand-plum hover:text-brand-primary inline-flex items-center justify-center cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>
