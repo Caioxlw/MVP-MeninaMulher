@@ -144,3 +144,12 @@ import { EmptyState } from "./components/ui";
   - **Etiquetas Textuais Acessíveis**: Indica claramente `Disponível`, `Últimas unidades` ou `Esgotado` em cada opção de cor e tamanho, sem depender apenas de cor (`RNF07`).
   - **Bloqueio de Variações Esgotadas (`RF05`)**: Cores e tamanhos com `stock === 0` recebem `disabled` e `aria-disabled="true"` (com área mínima de `44x44 px`), impedindo sua seleção e bloqueando o botão **"Adicionar à sacola"** quando a peça está esgotada.
   - **Trava de Quantidade pelo Estoque**: O seletor `-` / `+` limita a quantidade máxima selecionável pela cliente ao saldo disponível da variação escolhida.
+
+## Login da Empresária e Proteção de Rotas do Painel (`/painel/login` — PBI #99)
+
+- **Tela e Guardião de Rotas**: `src/pages/admin/AdminLoginScreen.tsx` (`AdminLoginScreen` e `ProtectedAdminRoute`)
+- **Serviço de Autenticação**: `src/services/authApi.ts` (`POST /api/auth/login` e `GET /api/auth/me`)
+- **Funcionalidades (`RF11`, `RNF01`, `RNF04`, `RNF05`, `RNF07`)**:
+  - **Proteção de Rotas Privadas (`ProtectedAdminRoute`)**: Redireciona automaticamente acessos não autenticados em `/painel/pedidos`, `/painel/produtos` e `/painel/estoque` para `/painel/login`.
+  - **Autenticação e Sessão**: Armazena o token JWT e dados públicos da empresária em `localStorage`, exibe alertas de erro acessíveis e redireciona para a página solicitada após o login.
+  - **Logout em 1 Toque**: Botão **Sair do Painel** na barra lateral (Desktop) e no cabeçalho (Mobile) encerrando a sessão e bloqueando novo acesso sem login.
