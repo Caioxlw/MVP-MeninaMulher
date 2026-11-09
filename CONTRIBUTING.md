@@ -63,25 +63,30 @@ flowchart LR
 
 ---
 
-## 🤖 3. Como Usar a Skill `git-branch` no Antigravity
+## 🤖 3. Como Usar as Skills no Antigravity
 
-O repositório já conta com a skill configurada em [`.agents/skills/git-branch/SKILL.md`](file:///.agents/skills/git-branch/SKILL.md). Nenhuma instalação manual é necessária — o Antigravity descobre a skill automaticamente ao abrir o projeto.
+O repositório conta com skills automatizadas em [`.agents/skills/`](file:///.agents/skills/). Nenhuma instalação manual é necessária — o Antigravity descobre as skills automaticamente ao abrir o projeto.
 
-### Uso Automatizado pelo Chat (Recomendado)
+### 🌿 Skill `git-branch`
 
-Basta pedir ao agente no chat do Antigravity mencionando o número da issue ou invocando `/git-branch`:
+Automatiza a criação de branches no fluxo hierárquico (**EPIC $\rightarrow$ PBI $\rightarrow$ TASK**) com validação estrita da convenção de nomenclatura.
+Configuração em [`.agents/skills/git-branch/SKILL.md`](file:///.agents/skills/git-branch/SKILL.md).
 
 > **Exemplos de prompt:**
 >
 > - _"Vamos resolver a issue #50"_
 > - _"/git-branch crie a branch para a issue #43"_
 
-**O que o agente fará automaticamente:**
+### 📋 Skill `pbi-manager`
 
-1. Consultará a issue e sua issue pai no GitHub para identificar o PBI/Epic correspondente.
-2. Verificará se a **Branch Geral** já existe localmente ou no `origin`.
-3. Caso não exista, atualizará a `main`, criará a **Branch Geral** e fará o `git push -u origin`.
-4. Criará a **Branch Específica** da sua tarefa apontando para a **Branch Geral**, validando o nome contra a Regex oficial (bloqueando formatos inválidos).
+Automatiza a criação, refatoração e sincronização de descrições de PBIs com o GitHub Projects e a base de requisitos em [`docs/documento-de-projeto.md`](file:///docs/documento-de-projeto.md).
+Configuração em [`.agents/skills/pbi-manager/SKILL.md`](file:///.agents/skills/pbi-manager/SKILL.md).
+
+> **Exemplos de prompt:**
+>
+> - _"Refatore o PBI #20 preenchendo a User Story e os requisitos"_
+> - _"/pbi-manager sincronize a User Story da issue #22"_
+> - _"Crie um novo PBI para a funcionalidade de carrinho de compras"_
 
 ---
 
