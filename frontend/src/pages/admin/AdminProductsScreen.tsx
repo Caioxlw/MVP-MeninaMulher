@@ -60,6 +60,12 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
   const [isMutatingId, setIsMutatingId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (locationState?.flashMessage) {
+      setFeedbackMessage(locationState.flashMessage);
+    }
+  }, [locationState?.flashMessage]);
+
+  useEffect(() => {
     let active = true;
 
     getAdminProducts()
