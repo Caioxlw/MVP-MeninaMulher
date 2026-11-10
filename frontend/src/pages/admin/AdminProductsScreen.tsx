@@ -18,6 +18,8 @@ import {
   type Product,
   type ProductStatusFilter,
   ProductsApiError,
+  applyDemoDeleteProduct,
+  applyDemoUpdateProduct,
   countProductsByStatus,
   deleteProduct,
   filterProducts,
@@ -112,7 +114,18 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
     setIsMutatingId(product.id);
 
     try {
-      const updated = await toggleProductActive(product.id, nextActive);
+      let updated: Product;
+      try {
+        updated = await toggleProductActive(product.id, nextActive);
+      } catch (apiErr: unknown) {
+        if (apiErr instanceof ProductsApiError && apiErr.code === "DEMO_READ_ONLY") {
+          updated = applyDemoUpdateProduct(product.id, { active: nextActive });
+          setIsDemoMode(true);
+        } else {
+          throw apiErr;
+        }
+      }
+
       setProducts((prev) => prev.map((item) => (item.id === product.id ? updated : item)));
       setFeedbackMessage(
         nextActive
@@ -143,7 +156,17 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
     setIsMutatingId(target.id);
 
     try {
-      await deleteProduct(target.id);
+      try {
+        await deleteProduct(target.id);
+      } catch (apiErr: unknown) {
+        if (apiErr instanceof ProductsApiError && apiErr.code === "DEMO_READ_ONLY") {
+          applyDemoDeleteProduct(target.id);
+          setIsDemoMode(true);
+        } else {
+          throw apiErr;
+        }
+      }
+
       setProducts((prev) => prev.filter((item) => item.id !== target.id));
       setFeedbackMessage(`"${target.name}" foi excluído do catálogo com sucesso.`);
       setDeleteTarget(null);
@@ -178,8 +201,8 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {isDemoMode && (
         <Alert variant="warning" title="Modo Demonstração — API offline">
-          Exibindo catálogo local de demonstração. Conecte o servidor backend para salvar alterações
-          no banco de dados.
+          Exibindo catálogo local de demonstração. As alterações feitas agora ficam salvas na
+          memória desta sessão para teste completo dos fluxos.
         </Alert>
       )}
 

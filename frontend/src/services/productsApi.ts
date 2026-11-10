@@ -5,9 +5,9 @@ import { clearAdminSession, getAdminSession } from "./authApi";
  *
  * Consome a API REST da PBI #16. Quando a API está offline, o catálogo de
  * demonstração só é usado em desenvolvimento local (`import.meta.env.DEV`):
- * leituras retornam `demo: true` e mutações são bloqueadas, para nunca
- * simular um salvamento que não chegou ao banco. Em produção, a falha de
- * conexão é sempre informada como erro.
+ * leituras retornam `demo: true` e mutações HTTP diretas lançam `DEMO_READ_ONLY`,
+ * permitindo que a camada de interface aplique fallback explícito em memória
+ * durante testes locais sem mascarar o estado offline da API.
  */
 
 export interface Category {
@@ -95,6 +95,8 @@ const OFFLINE_MESSAGE =
   "Não foi possível conectar ao servidor. Verifique sua internet e tente de novo.";
 const DEMO_READ_ONLY_MESSAGE =
   "Modo demonstração: a API está offline e as alterações não serão salvas.";
+const DEMO_CONFLICT_MESSAGE =
+  "Não é possível excluir fisicamente um produto que já possui pedidos vinculados. Utilize a desativação (active = false) para ocultá-lo do catálogo.";
 
 export const DEMO_CATEGORIES: Category[] = [
   { id: "demo-cat-conjuntos", name: "Conjuntos", slug: "conjuntos" },
@@ -147,6 +149,90 @@ export const DEMO_PRODUCTS: Product[] = [
     stock: [4],
   }),
 ];
+
+/**
+ * Peças do catálogo de demonstração que possuem pedidos vinculados para
+ * simular a regra de negócio RN04 (`409 Conflict`) quando a API está offline.
+ */
+const DEMO_PRODUCTS_WITH_ORDERS = new Set<string>([
+  "demo-sutia-renda-noir",
+  "demo-conjunto-microfibra",
+]);
+
+function cloneDemoProducts(source: Product[]): Product[] {
+  return source.map((item) => ({
+    ...item,
+    category: item.category ? { ...item.category } : null,
+    images: item.images.map((img) => ({ ...img })),
+    variants: item.variants.map((v) => ({ ...v })),
+  }));
+}
+
+let demoProductsStore: Product[] = cloneDemoProducts(DEMO_PRODUCTS);
+
+export function resetDemoProductsStore(): void {
+  demoProductsStore = cloneDemoProducts(DEMO_PRODUCTS);
+}
+
+export function applyDemoCreateProduct(dto: CreateProductDto): Product {
+  const normalized = normalizeDto(dto);
+  const category =
+    DEMO_CATEGORIES.find((cat) => cat.id === normalized.categoryId) ?? DEMO_CATEGORIES[0] ?? null;
+
+  const created: Product = {
+    id: `demo-prod-${Date.now()}`,
+    name: normalized.name ?? dto.name.trim(),
+    description: normalized.description ?? null,
+    price: Number(normalized.price ?? dto.price),
+    active: normalized.active ?? true,
+    featured: normalized.featured ?? false,
+    categoryId: category?.id ?? normalized.categoryId ?? null,
+    category,
+    images: [],
+    variants: [],
+  };
+
+  demoProductsStore = [created, ...demoProductsStore];
+  return created;
+}
+
+export function applyDemoUpdateProduct(id: string, dto: UpdateProductDto): Product {
+  const normalized = normalizeDto(dto);
+  const existing = demoProductsStore.find((item) => item.id === id);
+  if (!existing) {
+    throw new ProductsApiError("NOT_FOUND", "Produto não encontrado.", 404);
+  }
+
+  const nextCategoryId =
+    normalized.categoryId !== undefined ? normalized.categoryId : existing.categoryId;
+  const nextCategory =
+    DEMO_CATEGORIES.find((cat) => cat.id === nextCategoryId) ?? existing.category;
+
+  const updated: Product = {
+    ...existing,
+    ...(normalized.name !== undefined ? { name: normalized.name } : {}),
+    ...(normalized.description !== undefined ? { description: normalized.description } : {}),
+    ...(normalized.price !== undefined ? { price: Number(normalized.price) } : {}),
+    ...(normalized.active !== undefined ? { active: normalized.active } : {}),
+    ...(normalized.featured !== undefined ? { featured: normalized.featured } : {}),
+    categoryId: nextCategoryId,
+    category: nextCategory,
+  };
+
+  demoProductsStore = demoProductsStore.map((item) => (item.id === id ? updated : item));
+  return updated;
+}
+
+export function applyDemoDeleteProduct(id: string): void {
+  const existing = demoProductsStore.find((item) => item.id === id);
+  if (!existing) {
+    throw new ProductsApiError("NOT_FOUND", "Produto não encontrado.", 404);
+  }
+  if (DEMO_PRODUCTS_WITH_ORDERS.has(id)) {
+    throw new ProductsApiError("CONFLICT", DEMO_CONFLICT_MESSAGE, 409);
+  }
+  demoProductsStore = demoProductsStore.filter((item) => item.id !== id);
+}
 
 function isDemoFallbackEnabled(): boolean {
   return import.meta.env.DEV === true;
@@ -274,14 +360,17 @@ function normalizeDto(dto: UpdateProductDto): UpdateProductDto {
 const productPath = (id: string) => `/api/products/${encodeURIComponent(id)}`;
 
 export async function getAdminProducts(): Promise<ApiResult<Product[]>> {
-  const result = await read<ApiProduct[]>("/api/admin/products", () => DEMO_PRODUCTS);
-  return { ...result, data: result.demo ? DEMO_PRODUCTS : result.data.map(normalizeProduct) };
+  const result = await read<ApiProduct[]>("/api/admin/products", () => demoProductsStore);
+  return {
+    ...result,
+    data: result.demo ? cloneDemoProducts(demoProductsStore) : result.data.map(normalizeProduct),
+  };
 }
 
 export async function getAdminProductById(id: string): Promise<ApiResult<Product>> {
   const result = await read<ApiProduct | null>(
     `/api/admin/products/${encodeURIComponent(id)}`,
-    () => DEMO_PRODUCTS.find((p) => p.id === id) ?? null
+    () => demoProductsStore.find((p) => p.id === id) ?? null
   );
   if (!result.data) {
     throw new ProductsApiError("NOT_FOUND", "Produto não encontrado.", 404);

@@ -6,7 +6,10 @@ import { ROUTES, type RouteDescriptor } from "../../routes/routes.config";
 import {
   type Category,
   DEMO_CATEGORIES,
+  type Product,
   ProductsApiError,
+  applyDemoCreateProduct,
+  applyDemoUpdateProduct,
   createProduct,
   getAdminProductById,
   getCategories,
@@ -140,8 +143,19 @@ export function AdminProductFormScreen({ descriptor }: { descriptor: RouteDescri
         featured,
       };
 
-      const saved =
-        isEditMode && id ? await updateProduct(id, payload) : await createProduct(payload);
+      let saved: Product;
+      try {
+        saved = isEditMode && id ? await updateProduct(id, payload) : await createProduct(payload);
+      } catch (apiErr: unknown) {
+        if (apiErr instanceof ProductsApiError && apiErr.code === "DEMO_READ_ONLY") {
+          saved =
+            isEditMode && id
+              ? applyDemoUpdateProduct(id, payload)
+              : applyDemoCreateProduct(payload);
+        } else {
+          throw apiErr;
+        }
+      }
 
       const flashMessage = isEditMode
         ? `Produto "${saved.name}" atualizado com sucesso!`
@@ -170,8 +184,8 @@ export function AdminProductFormScreen({ descriptor }: { descriptor: RouteDescri
     <div className="max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {isDemoMode && (
         <Alert variant="warning" title="Modo Demonstração — API offline">
-          Os dados exibidos são do catálogo de demonstração. Conecte o servidor backend para salvar
-          alterações.
+          Exibindo catálogo local de demonstração. As alterações salvas serão aplicadas na memória
+          desta sessão para teste completo dos fluxos.
         </Alert>
       )}
 
