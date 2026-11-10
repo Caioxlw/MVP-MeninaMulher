@@ -1,15 +1,11 @@
 import {
-  AlertTriangle,
   ClipboardCheck,
-  Edit3,
-  Eye,
   Gift,
   Heart,
   Lock,
   MapPin,
   MessageCircle,
   Minus,
-  Package,
   Phone,
   Plus,
   RefreshCw,
@@ -36,6 +32,8 @@ import {
   type ProductStockStatus,
 } from "../components/ui";
 import { AdminLoginScreen, ProtectedAdminRoute } from "../pages/admin/AdminLoginScreen";
+import { AdminProductFormScreen } from "../pages/admin/AdminProductFormScreen";
+import { AdminProductsScreen } from "../pages/admin/AdminProductsScreen";
 import { AdminStockScreen } from "../pages/admin/AdminStockScreen";
 import { StoreProductDetailScreen } from "../pages/store/StoreProductDetailScreen";
 import {
@@ -214,84 +212,6 @@ const INITIAL_BAG_ITEMS: BagItem[] = [
     size: "M",
     unitPrice: 149.9,
     qty: 1,
-  },
-];
-
-const ADMIN_CATALOG_PRODUCTS = [
-  {
-    id: "sutia-renda-noir",
-    name: "Sutiã Renda Noir",
-    sku: "MM-LACE-0912",
-    tag: "Alta Procura",
-    category: "Partes de Cima",
-    collection: "Coleção Romance",
-    price: "R$ 99,90",
-    originalPrice: "R$ 119,90",
-    promo: "Promoção -17%",
-    totalUnits: "24 peças totais",
-    grades: [
-      { size: "P", qty: 6 },
-      { size: "M", qty: 10 },
-      { size: "G", qty: 8 },
-      { size: "GG", qty: 0 },
-    ],
-    status: "available" as const,
-    statusLabel: "Visível",
-    visible: true,
-  },
-  {
-    id: "conjunto-slip-seda",
-    name: "Conjunto Slip Seda Rosé",
-    sku: "MM-SILK-4402",
-    category: "Noite & Seda",
-    collection: "Linha Premium",
-    price: "R$ 249,00",
-    promo: "Preço regular",
-    totalUnits: "3 peças totais",
-    grades: [
-      { size: "P", qty: 1 },
-      { size: "M", qty: 2 },
-      { size: "G", qty: 0 },
-    ],
-    status: "lowStock" as const,
-    statusLabel: "Últimas Unidades",
-    visible: true,
-  },
-  {
-    id: "calcinha-chantilly",
-    name: "Calcinha Cintura Alta Chantilly",
-    sku: "MM-BRI-0018",
-    category: "Partes de Baixo",
-    collection: "Noivas & Celebração",
-    price: "R$ 68,00",
-    promo: "Preço regular",
-    totalUnits: "0 peças (Esgotado)",
-    grades: [
-      { size: "P", qty: 0 },
-      { size: "M", qty: 0 },
-      { size: "G", qty: 0 },
-    ],
-    status: "outOfStock" as const,
-    statusLabel: "Esgotado",
-    visible: false,
-  },
-  {
-    id: "body-red-velvet",
-    name: "Body Red Velvet Sensual",
-    sku: "MM-BDY-7731",
-    category: "Conjuntos",
-    collection: "Linha Íntima Glamour",
-    price: "R$ 189,90",
-    promo: "Preço regular",
-    totalUnits: "18 peças totais",
-    grades: [
-      { size: "P", qty: 5 },
-      { size: "M", qty: 8 },
-      { size: "G", qty: 5 },
-    ],
-    status: "neutral" as const,
-    statusLabel: "Oculto",
-    visible: false,
   },
 ];
 
@@ -1840,247 +1760,14 @@ function AdminOrdersScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   );
 }
 
-function AdminProductsScreen({ descriptor }: { descriptor: RouteDescriptor }) {
-  const params = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("Todos (48)");
-  const [isNewModalOpen, setIsNewModalOpen] = useState(false);
-
-  const filteredCatalog = ADMIN_CATALOG_PRODUCTS.filter((item) =>
-    item.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
-  );
-
-  return (
-    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      <section className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-1.5">
-            <Badge variant="blush">48 Produtos Ativos</Badge>
-            <span className="text-xs text-brand-muted">Rota: {location.pathname}</span>
-          </div>
-          <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum">
-            {descriptor.title}
-          </h1>
-          <p className="text-sm text-text-secondary">{descriptor.subtitle}</p>
-          {params.id && (
-            <p className="mt-1 text-sm font-semibold text-brand-primary">
-              Editando produto ID: {params.id}
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <Button variant="primary" onClick={() => setIsNewModalOpen(true)}>
-            <Plus className="w-4 h-4" />
-            Cadastrar Novo Produto
-          </Button>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
-              VALOR EM ESTOQUE
-            </span>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-text-primary mt-1">
-              R$ 54.890
-            </p>
-            <span className="text-xs text-brand-primary font-medium">382 peças auditadas</span>
-          </div>
-          <span className="w-10 h-10 rounded-xl bg-brand-blush text-brand-primary inline-flex items-center justify-center shrink-0">
-            <Package className="w-5 h-5" />
-          </span>
-        </div>
-
-        <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
-              NA VITRINE PRINCIPAL
-            </span>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-text-primary mt-1">
-              42 Peças
-            </p>
-            <span className="text-xs text-status-success font-medium">87.5% de alcance ativo</span>
-          </div>
-          <span className="w-10 h-10 rounded-xl bg-brand-blush text-brand-primary inline-flex items-center justify-center shrink-0">
-            <Eye className="w-5 h-5" />
-          </span>
-        </div>
-
-        <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
-              ATENÇÃO REPOSIÇÃO
-            </span>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-status-warning mt-1">
-              5 Modelos
-            </p>
-            <span className="text-xs text-brand-muted">Últimas unidades</span>
-          </div>
-          <span className="w-10 h-10 rounded-xl bg-status-warning-bg text-status-warning inline-flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </span>
-        </div>
-
-        <div className="bg-brand-surface border border-brand-border rounded-2xl p-4 flex items-center justify-between shadow-xs">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-muted block">
-              ESGOTADOS
-            </span>
-            <p className="font-editorial text-xl sm:text-2xl font-bold text-status-danger mt-1">
-              3 Peças
-            </p>
-            <span className="text-xs text-brand-muted">Grade zerada</span>
-          </div>
-          <span className="w-10 h-10 rounded-xl bg-status-danger-bg text-status-danger inline-flex items-center justify-center shrink-0">
-            <ShoppingBag className="w-5 h-5" />
-          </span>
-        </div>
-      </section>
-
-      <section className="bg-brand-surface border border-brand-border rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div className="w-full md:w-80">
-            <Input
-              label="Buscar peça no catálogo"
-              placeholder="Buscar por nome da lingerie, ref..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<Search className="w-4 h-4" />}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              "Todos (48)",
-              "Visíveis (42)",
-              "Ocultos (6)",
-              "Últimas Unidades (5)",
-              "Esgotados (3)",
-            ].map((pill) => (
-              <button
-                key={pill}
-                type="button"
-                onClick={() => setSelectedFilter(pill)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                  selectedFilter === pill
-                    ? "bg-brand-primary text-white"
-                    : "bg-brand-soft text-brand-muted hover:text-brand-plum"
-                }`}
-              >
-                {pill}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="divide-y divide-brand-border">
-          {filteredCatalog.map((item) => (
-            <div
-              key={item.id}
-              className="py-4 flex flex-col md:grid md:grid-cols-12 gap-4 items-start md:items-center"
-            >
-              <div className="md:col-span-4 flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl bg-brand-soft border border-brand-border flex items-center justify-center font-editorial font-bold text-brand-plum shrink-0">
-                  MM
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-brand-plum">{item.name}</p>
-                  <p className="text-xs text-brand-muted">SKU: {item.sku}</p>
-                  {item.tag && (
-                    <span className="text-[11px] font-semibold text-brand-primary">{item.tag}</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <p className="text-xs font-bold text-text-primary">{item.category}</p>
-                <p className="text-[11px] text-brand-muted">{item.collection}</p>
-              </div>
-
-              <div className="md:col-span-2">
-                <span className="text-sm font-bold text-text-primary">{item.price}</span>
-                {item.originalPrice && (
-                  <span className="text-xs text-brand-muted line-through ml-1.5">
-                    {item.originalPrice}
-                  </span>
-                )}
-                <p className="text-[11px] text-brand-primary font-medium">{item.promo}</p>
-              </div>
-
-              <div className="md:col-span-2 space-y-1">
-                <p className="text-xs font-bold text-text-primary">{item.totalUnits}</p>
-                <div className="flex flex-wrap gap-1">
-                  {item.grades.map((g) => (
-                    <span
-                      key={g.size}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                        g.qty > 0
-                          ? "bg-brand-blush/60 text-brand-plum"
-                          : "bg-brand-soft text-brand-muted line-through"
-                      }`}
-                    >
-                      {g.size} {g.qty}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 flex items-center justify-between md:justify-end gap-2 w-full">
-                <Badge variant={item.status} dot>
-                  {item.statusLabel}
-                </Badge>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate(`/painel/produtos/${item.id}/editar`)}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  Editar
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <Modal
-        isOpen={isNewModalOpen}
-        onClose={() => setIsNewModalOpen(false)}
-        subtitle="CATÁLOGO MENINA MULHER"
-        title="Ficha da Peça"
-        description="Preencha os dados da peça, preço e grade inicial de tamanhos e cores."
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsNewModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button variant="primary" onClick={() => setIsNewModalOpen(false)}>
-              Salvar no Catálogo
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <Input label="Nome da Peça" defaultValue="Sutiã Renda Noir" />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Categoria" defaultValue="Partes de Cima" />
-            <Input label="Preço de Venda (R$)" defaultValue="119,90" />
-          </div>
-        </div>
-      </Modal>
-    </div>
-  );
-}
-
 function AdminRouteDispatcher({ descriptor }: { descriptor: RouteDescriptor }) {
   const location = useLocation();
 
   if (location.pathname.startsWith("/painel/estoque")) {
     return <AdminStockScreen descriptor={descriptor} />;
+  }
+  if (location.pathname === ROUTES.admin.newProduct || location.pathname.endsWith("/editar")) {
+    return <AdminProductFormScreen descriptor={descriptor} />;
   }
   if (location.pathname.startsWith("/painel/produtos")) {
     return <AdminProductsScreen descriptor={descriptor} />;
