@@ -11,6 +11,7 @@ import {
   resolveProductOverallAvailability,
   type StoreProductVariant,
 } from "../../services/availability";
+import { fetchPublicProductById, type CatalogProductItem } from "../../services/catalogApi";
 
 export interface StoreCatalogPreviewItem {
   id: string;
@@ -19,6 +20,8 @@ export interface StoreCatalogPreviewItem {
   subtitle: string;
   price: number;
   installmentText: string;
+  imageUrl?: string;
+  imageAlt?: string;
   sizes: string[];
   colors: string[];
   colorNames: string[];
@@ -42,17 +45,32 @@ export function StoreProductDetailScreen({
 }) {
   const params = useParams();
   const navigate = useNavigate();
-  const product = products.find((p) => p.id === params.id) ?? products[0];
-
+  const [apiProductMap, setApiProductMap] = useState<Record<string, CatalogProductItem>>({});
   const [apiVariantsMap, setApiVariantsMap] = useState<Record<string, StoreProductVariant[]>>({});
+
+  const targetId = params.id ?? products[0]?.id ?? "";
 
   useEffect(() => {
     let active = true;
+    if (!targetId) return;
 
-    fetchStoreProductVariants(product.id)
+    fetchPublicProductById(targetId)
+      .then((loadedProduct) => {
+        if (active && loadedProduct) {
+          setApiProductMap((prev) => ({ ...prev, [targetId]: loadedProduct }));
+          if (loadedProduct.variants.length > 0) {
+            setApiVariantsMap((prev) => ({ ...prev, [targetId]: loadedProduct.variants }));
+          }
+        }
+      })
+      .catch(() => {
+        // Mantém fallback local
+      });
+
+    fetchStoreProductVariants(targetId)
       .then((loaded) => {
         if (active && loaded.length > 0) {
-          setApiVariantsMap((prev) => ({ ...prev, [product.id]: loaded }));
+          setApiVariantsMap((prev) => ({ ...prev, [targetId]: loaded }));
         }
       })
       .catch(() => {
@@ -62,7 +80,10 @@ export function StoreProductDetailScreen({
     return () => {
       active = false;
     };
-  }, [product.id]);
+  }, [targetId]);
+
+  const product: StoreCatalogPreviewItem =
+    apiProductMap[targetId] ?? products.find((p) => p.id === targetId) ?? products[0];
 
   const variants = useMemo(
     () => apiVariantsMap[product.id] ?? getFallbackProductVariants(product.id),
@@ -169,8 +190,16 @@ export function StoreProductDetailScreen({
       <section className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
         {/* Galeria de Fotos */}
         <div className="md:col-span-6 space-y-3">
-          <div className="aspect-3/4 rounded-2xl bg-brand-soft border border-brand-border p-6 flex flex-col justify-between relative shadow-xs">
-            <div className="flex items-center justify-between gap-2">
+          <div className="aspect-3/4 rounded-2xl bg-brand-soft border border-brand-border p-6 flex flex-col justify-between relative shadow-xs overflow-hidden">
+            {product.imageUrl && (
+              <img
+                src={product.imageUrl}
+                alt={product.imageAlt ?? product.name}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
+
+            <div className="relative z-10 flex items-center justify-between gap-2">
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant={overallAvailability.badgeVariant} dot>
                   {overallAvailability.label}
@@ -180,15 +209,17 @@ export function StoreProductDetailScreen({
               <Badge variant="neutral">REF: MM-78401</Badge>
             </div>
 
-            <div className="my-auto text-center space-y-2 py-12">
-              <span className="w-20 h-20 rounded-full bg-brand-blush text-brand-primary font-editorial text-3xl font-bold inline-flex items-center justify-center shadow-xs">
-                MM
-              </span>
-              <p className="font-editorial text-2xl font-bold text-brand-plum">{product.name}</p>
-              <p className="text-xs text-brand-muted">{product.subtitle}</p>
-            </div>
+            {!product.imageUrl && (
+              <div className="relative z-10 my-auto text-center space-y-2 py-12">
+                <span className="w-20 h-20 rounded-full bg-brand-blush text-brand-primary font-editorial text-3xl font-bold inline-flex items-center justify-center shadow-xs">
+                  MM
+                </span>
+                <p className="font-editorial text-2xl font-bold text-brand-plum">{product.name}</p>
+                <p className="text-xs text-brand-muted">{product.subtitle}</p>
+              </div>
+            )}
 
-            <div className="bg-brand-surface/90 backdrop-blur-xs rounded-xl p-3 border border-brand-border flex items-center justify-between text-xs text-brand-muted">
+            <div className="relative z-10 bg-brand-surface/90 backdrop-blur-xs rounded-xl p-3 border border-brand-border flex items-center justify-between text-xs text-brand-muted">
               <span>✨ Renda francesa antialérgica com toque macio</span>
               <span className="font-bold text-brand-plum">Cor: {effectiveColor}</span>
             </div>
