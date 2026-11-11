@@ -1,7 +1,16 @@
-import { Ban, Minus, Plus, Ruler, ShoppingBag, Star } from "lucide-react";
+import {
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Plus,
+  Ruler,
+  ShoppingBag,
+  Star,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Alert, Badge, Button, type ProductStockStatus } from "../../components/ui";
+import { Alert, Badge, Button, EmptyState, type ProductStockStatus } from "../../components/ui";
 import { ROUTES, type RouteDescriptor } from "../../routes/routes.config";
 import {
   fetchStoreProductVariants,
@@ -11,17 +20,24 @@ import {
   resolveProductOverallAvailability,
   type StoreProductVariant,
 } from "../../services/availability";
-import { fetchPublicProductById, type CatalogProductItem } from "../../services/catalogApi";
+import {
+  fetchPublicProductDetail,
+  resolveProductGalleryImages,
+  type CatalogProductImage,
+  type PublicProductDetailResult,
+} from "../../services/catalogApi";
 
 export interface StoreCatalogPreviewItem {
   id: string;
   category: string;
+  categorySlug?: string | null;
   name: string;
   subtitle: string;
   price: number;
   installmentText: string;
   imageUrl?: string;
   imageAlt?: string;
+  images?: CatalogProductImage[];
   sizes: string[];
   colors: string[];
   colorNames: string[];
@@ -45,26 +61,36 @@ export function StoreProductDetailScreen({
 }) {
   const params = useParams();
   const navigate = useNavigate();
-  const [apiProductMap, setApiProductMap] = useState<Record<string, CatalogProductItem>>({});
+  const [apiDetailMap, setApiDetailMap] = useState<Record<string, PublicProductDetailResult>>({});
   const [apiVariantsMap, setApiVariantsMap] = useState<Record<string, StoreProductVariant[]>>({});
+  const [activeImageState, setActiveImageState] = useState<{ productId: string; index: number }>({
+    productId: "",
+    index: 0,
+  });
 
   const targetId = params.id ?? products[0]?.id ?? "";
+  const previewMatch = useMemo(
+    () => products.find((p) => p.id === targetId) ?? null,
+    [products, targetId]
+  );
 
   useEffect(() => {
     let active = true;
     if (!targetId) return;
 
-    fetchPublicProductById(targetId)
-      .then((loadedProduct) => {
-        if (active && loadedProduct) {
-          setApiProductMap((prev) => ({ ...prev, [targetId]: loadedProduct }));
-          if (loadedProduct.variants.length > 0) {
-            setApiVariantsMap((prev) => ({ ...prev, [targetId]: loadedProduct.variants }));
-          }
+    fetchPublicProductDetail(targetId)
+      .then((detailResult) => {
+        if (!active) return;
+        setApiDetailMap((prev) => ({ ...prev, [targetId]: detailResult }));
+        if (detailResult.product && detailResult.product.variants.length > 0) {
+          setApiVariantsMap((prev) => ({
+            ...prev,
+            [targetId]: detailResult.product!.variants,
+          }));
         }
       })
       .catch(() => {
-        // Mantém fallback local
+        // Mantém estado local caso falhe
       });
 
     fetchStoreProductVariants(targetId)
@@ -82,13 +108,33 @@ export function StoreProductDetailScreen({
     };
   }, [targetId]);
 
-  const product: StoreCatalogPreviewItem =
-    apiProductMap[targetId] ?? products.find((p) => p.id === targetId) ?? products[0];
+  const detailResult = apiDetailMap[targetId];
+  const product: StoreCatalogPreviewItem | null = detailResult?.product ?? previewMatch;
+  const fallbackProductId = product?.id ?? targetId;
 
-  const variants = useMemo(
-    () => apiVariantsMap[product.id] ?? getFallbackProductVariants(product.id),
-    [apiVariantsMap, product.id]
+  const variants = useMemo(() => {
+    if (apiVariantsMap[fallbackProductId] && apiVariantsMap[fallbackProductId].length > 0) {
+      return apiVariantsMap[fallbackProductId];
+    }
+    if (detailResult?.product?.variants && detailResult.product.variants.length > 0) {
+      return detailResult.product.variants;
+    }
+    return getFallbackProductVariants(fallbackProductId);
+  }, [apiVariantsMap, detailResult, fallbackProductId]);
+
+  const galleryImages = useMemo(
+    () => (product ? resolveProductGalleryImages(product) : []),
+    [product]
   );
+
+  const safeImageIndex =
+    product &&
+    activeImageState.productId === product.id &&
+    activeImageState.index >= 0 &&
+    activeImageState.index < galleryImages.length
+      ? activeImageState.index
+      : 0;
+  const activeImage = galleryImages[safeImageIndex] ?? null;
 
   const colorOptions = useMemo(() => getProductColorsAvailability(variants), [variants]);
   const overallAvailability = useMemo(
@@ -129,6 +175,72 @@ export function StoreProductDetailScreen({
   const maxSelectableQty = activeSizeOption ? Math.max(1, activeSizeOption.stock) : 1;
   const effectiveQty = canAddToBag ? Math.min(qty, maxSelectableQty) : 0;
 
+  if (!product) {
+    if (!detailResult) {
+      return (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-brand-muted">Home › Catálogo</span>
+            <Badge variant="blush">{descriptor.title}</Badge>
+          </div>
+          <div
+            data-testid="product-detail-loading"
+            className="bg-brand-surface border border-brand-border rounded-2xl p-10 text-center text-sm text-brand-muted"
+          >
+            Carregando detalhes da peça...
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.store.catalog)}
+            className="text-xs text-brand-primary font-semibold hover:underline cursor-pointer"
+          >
+            ← Voltar para o Catálogo
+          </button>
+          <Badge variant="blush">{descriptor.title}</Badge>
+        </div>
+
+        <Alert variant="error" title="Produto indisponível ou não encontrado">
+          {detailResult.errorMessage ??
+            "Não foi possível localizar esta peça no catálogo ativo da loja."}
+        </Alert>
+
+        <EmptyState
+          title="Não encontramos esta peça"
+          description="Este produto pode ter sido ocultado do catálogo ou o endereço informado não existe."
+          actionLabel="Voltar ao Catálogo"
+          onAction={() => navigate(ROUTES.store.catalog)}
+        />
+      </div>
+    );
+  }
+
+  const handleSelectImage = (index: number) => {
+    setActiveImageState({ productId: product.id, index });
+  };
+
+  const handlePrevImage = () => {
+    if (galleryImages.length <= 1) return;
+    setActiveImageState({
+      productId: product.id,
+      index: (safeImageIndex - 1 + galleryImages.length) % galleryImages.length,
+    });
+  };
+
+  const handleNextImage = () => {
+    if (galleryImages.length <= 1) return;
+    setActiveImageState({
+      productId: product.id,
+      index: (safeImageIndex + 1) % galleryImages.length,
+    });
+  };
+
   const handleSelectColor = (color: string, available: boolean) => {
     if (!available) return;
     setAddedFeedback(false);
@@ -148,6 +260,8 @@ export function StoreProductDetailScreen({
     setAddedFeedback(true);
   };
 
+  const shortRef = `MM-${product.id.slice(-5).toUpperCase()}`;
+
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-10">
       {/* Trilha de Navegação + Título da Rota */}
@@ -161,7 +275,17 @@ export function StoreProductDetailScreen({
             Home
           </button>
           <span>›</span>
-          <span>{product.category}</span>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                product.categorySlug ? `/categoria/${product.categorySlug}` : ROUTES.store.catalog
+              )
+            }
+            className="hover:text-brand-primary cursor-pointer"
+          >
+            {product.category}
+          </button>
           <span>›</span>
           <span className="font-semibold text-brand-primary">{product.name}</span>
         </div>
@@ -188,13 +312,14 @@ export function StoreProductDetailScreen({
 
       {/* Grid Principal do Produto: Galeria à Esquerda + Seleção à Direita */}
       <section className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
-        {/* Galeria de Fotos */}
-        <div className="md:col-span-6 space-y-3">
-          <div className="aspect-3/4 rounded-2xl bg-brand-soft border border-brand-border p-6 flex flex-col justify-between relative shadow-xs overflow-hidden">
-            {product.imageUrl && (
+        {/* Galeria Interativa de Fotos (RF04, RNF01, RNF07 — PBI #22) */}
+        <div data-testid="product-detail-gallery" className="md:col-span-6 space-y-3">
+          <div className="aspect-3/4 rounded-2xl bg-brand-soft border border-brand-border p-4 sm:p-6 flex flex-col justify-between relative shadow-xs overflow-hidden">
+            {activeImage && (
               <img
-                src={product.imageUrl}
-                alt={product.imageAlt ?? product.name}
+                data-testid="gallery-main-image"
+                src={activeImage.url}
+                alt={activeImage.altText}
                 className="absolute inset-0 w-full h-full object-cover"
               />
             )}
@@ -206,10 +331,43 @@ export function StoreProductDetailScreen({
                 </Badge>
                 {product.badgeText && <Badge variant="brand">{product.badgeText}</Badge>}
               </div>
-              <Badge variant="neutral">REF: MM-78401</Badge>
+              <div className="flex items-center gap-1.5">
+                {galleryImages.length > 0 && (
+                  <span
+                    data-testid="gallery-counter"
+                    className="px-2.5 py-1 rounded-full bg-brand-surface/90 border border-brand-border text-[11px] font-bold text-brand-plum shadow-xs"
+                  >
+                    {safeImageIndex + 1} / {galleryImages.length}
+                  </span>
+                )}
+                <Badge variant="neutral">REF: {shortRef}</Badge>
+              </div>
             </div>
 
-            {!product.imageUrl && (
+            {galleryImages.length > 1 && (
+              <div className="relative z-10 my-auto flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  data-testid="gallery-prev-btn"
+                  aria-label="Foto anterior"
+                  onClick={handlePrevImage}
+                  className="min-w-11 min-h-11 touch-target rounded-full bg-brand-surface/90 border border-brand-border text-brand-plum hover:bg-brand-surface hover:text-brand-primary inline-flex items-center justify-center shadow-xs transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  data-testid="gallery-next-btn"
+                  aria-label="Próxima foto"
+                  onClick={handleNextImage}
+                  className="min-w-11 min-h-11 touch-target rounded-full bg-brand-surface/90 border border-brand-border text-brand-plum hover:bg-brand-surface hover:text-brand-primary inline-flex items-center justify-center shadow-xs transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {!activeImage && (
               <div className="relative z-10 my-auto text-center space-y-2 py-12">
                 <span className="w-20 h-20 rounded-full bg-brand-blush text-brand-primary font-editorial text-3xl font-bold inline-flex items-center justify-center shadow-xs">
                   MM
@@ -219,11 +377,50 @@ export function StoreProductDetailScreen({
               </div>
             )}
 
-            <div className="relative z-10 bg-brand-surface/90 backdrop-blur-xs rounded-xl p-3 border border-brand-border flex items-center justify-between text-xs text-brand-muted">
-              <span>✨ Renda francesa antialérgica com toque macio</span>
-              <span className="font-bold text-brand-plum">Cor: {effectiveColor}</span>
+            <div className="relative z-10 bg-brand-surface/90 backdrop-blur-xs rounded-xl p-3 border border-brand-border flex items-center justify-between gap-2 text-xs text-brand-muted">
+              <span className="truncate">
+                {activeImage
+                  ? activeImage.altText
+                  : "✨ Renda francesa antialérgica com toque macio"}
+              </span>
+              <span className="font-bold text-brand-plum shrink-0">Cor: {effectiveColor}</span>
             </div>
           </div>
+
+          {/* Miniaturas Clicáveis (Thumbnails >= 44px — RNF07) */}
+          {galleryImages.length > 1 && (
+            <div
+              role="group"
+              aria-label="Miniaturas de fotos do produto"
+              className="flex flex-wrap items-center gap-2.5"
+            >
+              {galleryImages.map((img, index) => {
+                const isCurrent = safeImageIndex === index;
+                return (
+                  <button
+                    key={img.id}
+                    type="button"
+                    data-testid={`gallery-thumbnail-${index}`}
+                    aria-label={`Ver foto ${index + 1}: ${img.altText}`}
+                    aria-pressed={isCurrent}
+                    onClick={() => handleSelectImage(index)}
+                    className={`min-w-14 min-h-14 w-16 h-20 touch-target rounded-xl overflow-hidden border transition-all relative cursor-pointer ${
+                      isCurrent
+                        ? "border-2 border-brand-primary ring-2 ring-brand-primary/25 shadow-xs"
+                        : "border-brand-border opacity-75 hover:opacity-100 hover:border-brand-primary/50"
+                    }`}
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.altText}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Coluna Direita: Preço, Cores, Tamanhos, Disponibilidade e Ações */}
@@ -240,6 +437,7 @@ export function StoreProductDetailScreen({
             <h1 className="font-editorial text-2xl sm:text-3xl font-bold text-brand-plum">
               {product.name}
             </h1>
+            <p className="text-xs sm:text-sm text-text-secondary">{product.subtitle}</p>
             <div className="flex items-baseline gap-2.5 pt-1">
               <span className="font-editorial text-2xl sm:text-3xl font-bold text-brand-primary">
                 {formatBRL(product.price)}
@@ -430,10 +628,12 @@ export function StoreProductDetailScreen({
             <h2 className="text-xs font-bold uppercase tracking-wider text-brand-primary">
               ✨ Detalhes do Produto & Tecido
             </h2>
-            <p className="text-xs text-text-secondary leading-relaxed">
-              Confeccionado com toque suave e design anatômico que valoriza as formas naturais do
-              corpo sem comprimir. Renda francesa antialérgica com acabamento macio e suporte
-              delicado.
+            <p
+              data-testid="product-detail-description"
+              className="text-xs text-text-secondary leading-relaxed"
+            >
+              {product.subtitle} Confeccionado com toque suave e design anatômico que valoriza as
+              formas naturais do corpo sem comprimir.
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-brand-soft rounded-xl p-3 border border-brand-border">
