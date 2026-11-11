@@ -161,3 +161,11 @@ import { EmptyState } from "./components/ui";
 - **Funcionalidades (`RF02`, `RNF01`, `RNF02`, `RNF07`, `US01`)**:
   - **Produtos Ativos do Banco**: Consome `GET /api/products` exibindo exclusivamente peças com `active: true`, com foto principal (`images[0].url` ordenada por `position`) e texto alternativo (`altText`), nome, descrição curta, preço formatado em BRL, tamanhos/cores das variações e etiqueta de disponibilidade.
   - **Tratamento de Estados de Carregamento e Indisponibilidade**: Exibe indicador de carregamento durante a busca e `Alert` + `EmptyState` com ação **"Tentar novamente"** caso o servidor back-end esteja offline.
+
+## Página de Detalhes do Produto com Galeria, Tamanhos e Cores (`/produto/:id` — PBI #22)
+
+- **Tela de Detalhes**: `src/pages/store/StoreProductDetailScreen.tsx`
+- **Serviço de Detalhes e Galeria**: `src/services/catalogApi.ts` (`fetchPublicProductDetail` e `resolveProductGalleryImages`)
+- **Funcionalidades (`RF04`, `RF05`, `RNF01`, `RNF07`, `US01`, `US03`)**:
+  - **Galeria Interativa de Múltiplas Fotos**: Exibe a foto selecionada com `altText`, contador de imagens (`1 / N`), miniaturas clicáveis (`>= 44x44 px`) com `aria-pressed` e botões **Foto anterior** / **Próxima foto** (`>= 44x44 px`).
+  - **Dados Reais e Tratamento de 404**: Exibe nome, categoria clicável, descrição completa cadastrada no banco, preço em BRL, código de referência e seleção de cores/tamanhos; caso o produto não exista ou esteja oculto (`404`), apresenta `Alert` e `EmptyState` com botão para retornar ao catálogo.
