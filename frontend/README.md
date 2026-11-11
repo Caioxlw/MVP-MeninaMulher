@@ -153,3 +153,11 @@ import { EmptyState } from "./components/ui";
   - **Proteção de Rotas Privadas (`ProtectedAdminRoute`)**: Redireciona automaticamente acessos não autenticados em `/painel/pedidos`, `/painel/produtos` e `/painel/estoque` para `/painel/login`.
   - **Autenticação e Sessão**: Armazena o token JWT e dados públicos da empresária em `localStorage`, exibe alertas de erro acessíveis e redireciona para a página solicitada após o login.
   - **Logout em 1 Toque**: Botão **Sair do Painel** na barra lateral (Desktop) e no cabeçalho (Mobile) encerrando a sessão e bloqueando novo acesso sem login.
+
+## Listagem de Produtos Ativos no Catálogo Público (`/` e `/catalogo` — PBI #20)
+
+- **Serviço de Catálogo**: `src/services/catalogApi.ts` (`GET /api/products` e `GET /api/products/:id`)
+- **Telas Conectadas**: `StoreHomeScreen` (`/`), `StoreCatalogScreen` (`/catalogo` e `/categoria/:slug`) e `StoreProductDetailScreen` (`/produto/:id`)
+- **Funcionalidades (`RF02`, `RNF01`, `RNF02`, `RNF07`, `US01`)**:
+  - **Produtos Ativos do Banco**: Consome `GET /api/products` exibindo exclusivamente peças com `active: true`, com foto principal (`images[0].url` ordenada por `position`) e texto alternativo (`altText`), nome, descrição curta, preço formatado em BRL, tamanhos/cores das variações e etiqueta de disponibilidade.
+  - **Tratamento de Estados de Carregamento e Indisponibilidade**: Exibe indicador de carregamento durante a busca e `Alert` + `EmptyState` com ação **"Tentar novamente"** caso o servidor back-end esteja offline.

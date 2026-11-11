@@ -38,6 +38,7 @@ import {
 import { AdminLoginScreen, ProtectedAdminRoute } from "../pages/admin/AdminLoginScreen";
 import { AdminStockScreen } from "../pages/admin/AdminStockScreen";
 import { StoreProductDetailScreen } from "../pages/store/StoreProductDetailScreen";
+import { fetchPublicProducts, type CatalogProductItem } from "../services/catalogApi";
 import {
   ADMIN_ROUTE_DESCRIPTORS,
   ROUTES,
@@ -312,9 +313,42 @@ function formatBRL(value: number): string {
 function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const navigate = useNavigate();
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProductItem[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState<number>(0);
   const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
   const [filterText, setFilterText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
+
+  useEffect(() => {
+    let active = true;
+    fetchPublicProducts()
+      .then((items) => {
+        if (!active) return;
+        setCatalogProducts(items);
+        setCatalogError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setCatalogProducts([]);
+        setCatalogError(
+          err instanceof Error ? err.message : "Não foi possível carregar os produtos do catálogo."
+        );
+      })
+      .finally(() => {
+        if (active) setIsLoadingCatalog(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [reloadKey]);
+
+  const loadCatalog = () => {
+    setIsLoadingCatalog(true);
+    setCatalogError(null);
+    setReloadKey((k) => k + 1);
+  };
 
   useEffect(() => {
     let active = true;
@@ -339,8 +373,15 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
     );
   };
 
-  const filteredProducts = PREVIEW_PRODUCTS.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(filterText.trim().toLowerCase());
+  const categoryTabs =
+    catalogProducts.length > 0
+      ? ["Todos", ...Array.from(new Set(catalogProducts.map((p) => p.category)))]
+      : ["Todos", "Conjuntos", "Sutiãs", "Calcinhas", "Pijamas & Baby Doll"];
+
+  const filteredProducts = catalogProducts.filter((p) => {
+    const query = filterText.trim().toLowerCase();
+    const matchesSearch =
+      !query || p.name.toLowerCase().includes(query) || p.subtitle.toLowerCase().includes(query);
     const matchesCategory =
       selectedCategory === "Todos" || p.category.toLowerCase() === selectedCategory.toLowerCase();
     return matchesSearch && matchesCategory;
@@ -444,7 +485,7 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="flex flex-wrap items-center gap-1.5 bg-brand-soft p-1.5 rounded-xl border border-brand-border">
-              {["Todos", "Partes de Cima", "Partes de Baixo", "Conjuntos"].map((cat) => (
+              {categoryTabs.map((cat) => (
                 <button
                   key={cat}
                   type="button"
@@ -472,7 +513,26 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
           </div>
         </div>
 
-        {filteredProducts.length > 0 ? (
+        {catalogError ? (
+          <div className="space-y-4">
+            <Alert variant="error" title="Catálogo indisponível no momento">
+              {catalogError} Verifique se o servidor da API está em execução.
+            </Alert>
+            <EmptyState
+              title="Não foi possível carregar as peças"
+              description="Ocorreu uma falha de comunicação ao buscar os produtos ativos no servidor."
+              actionLabel="Tentar novamente"
+              onAction={loadCatalog}
+            />
+          </div>
+        ) : isLoadingCatalog ? (
+          <div
+            data-testid="home-catalog-loading"
+            className="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center text-sm text-brand-muted"
+          >
+            Carregando catálogo de produtos ativos...
+          </div>
+        ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
             {filteredProducts.map((product) => (
               <ProductCard
@@ -483,6 +543,8 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
                 subtitle={product.subtitle}
                 price={product.price}
                 installmentText={product.installmentText}
+                imageUrl={product.imageUrl}
+                imageAlt={product.imageAlt}
                 sizes={product.sizes}
                 colors={product.colors}
                 badgeText={product.badgeText}
@@ -496,7 +558,7 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         ) : (
           <EmptyState
             title="Nenhuma peça encontrada"
-            description="Não encontramos peças para o filtro selecionado. Limpe a busca para ver toda a coleção."
+            description="Não encontramos peças ativas para o filtro selecionado. Limpe a busca para ver toda a coleção."
             actionLabel="Limpar filtro"
             onAction={() => {
               setFilterText("");
@@ -630,24 +692,75 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
 function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const params = useParams();
   const navigate = useNavigate();
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProductItem[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState<number>(0);
   const [selectedColor, setSelectedColor] = useState("Todas");
   const [selectedSize, setSelectedSize] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
 
+  useEffect(() => {
+    let active = true;
+    fetchPublicProducts()
+      .then((items) => {
+        if (!active) return;
+        setCatalogProducts(items);
+        setCatalogError(null);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setCatalogProducts([]);
+        setCatalogError(
+          err instanceof Error ? err.message : "Não foi possível carregar os produtos do catálogo."
+        );
+      })
+      .finally(() => {
+        if (active) setIsLoadingCatalog(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [reloadKey]);
+
+  const loadCatalog = () => {
+    setIsLoadingCatalog(true);
+    setCatalogError(null);
+    setReloadKey((k) => k + 1);
+  };
+
   const slugMap: Record<string, string> = {
     "partes-de-cima": "Partes de Cima",
     "partes-de-baixo": "Partes de Baixo",
     conjuntos: "Conjuntos",
+    sutias: "Sutiãs",
+    calcinhas: "Calcinhas",
+    "pijamas-baby-doll": "Pijamas & Baby Doll",
   };
-  const categoryFilterName = params.slug ? (slugMap[params.slug] ?? null) : null;
+  const categoryFilterName = params.slug ? (slugMap[params.slug] ?? params.slug) : null;
 
-  const filteredProducts = PREVIEW_PRODUCTS.filter((p) => {
+  const availableColors =
+    catalogProducts.length > 0
+      ? ["Todas", ...Array.from(new Set(catalogProducts.flatMap((p) => p.colorNames)))]
+      : ["Todas", "Vermelho Rubi", "Preto", "Branco", "Nude", "Rosa Chá"];
+
+  const availableSizes =
+    catalogProducts.length > 0
+      ? ["Todos", ...Array.from(new Set(catalogProducts.flatMap((p) => p.sizes)))]
+      : ["Todos", "P", "M", "G", "GG"];
+
+  const filteredProducts = catalogProducts.filter((p) => {
     const matchesCategory =
-      !categoryFilterName || p.category.toLowerCase() === categoryFilterName.toLowerCase();
+      !params.slug ||
+      p.categorySlug?.toLowerCase() === params.slug.toLowerCase() ||
+      (categoryFilterName !== null &&
+        p.category.toLowerCase() === categoryFilterName.toLowerCase());
     const matchesColor = selectedColor === "Todas" || p.colorNames.includes(selectedColor);
     const matchesSize = selectedSize === "Todos" || p.sizes.includes(selectedSize);
-    const matchesQuery = p.name.toLowerCase().includes(searchQuery.trim().toLowerCase());
+    const query = searchQuery.trim().toLowerCase();
+    const matchesQuery =
+      !query || p.name.toLowerCase().includes(query) || p.subtitle.toLowerCase().includes(query);
     return matchesCategory && matchesColor && matchesSize && matchesQuery;
   });
 
@@ -700,7 +813,7 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             <span className="text-xs font-bold uppercase tracking-wider text-brand-muted mr-1">
               COR:
             </span>
-            {["Todas", "Preto", "Cinza", "Rosa", "Vinho", "Branco"].map((color) => (
+            {availableColors.map((color) => (
               <button
                 key={color}
                 type="button"
@@ -720,7 +833,7 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             <span className="text-xs font-bold uppercase tracking-wider text-brand-muted mr-1">
               TAM:
             </span>
-            {["Todos", "P", "M", "G", "GG"].map((size) => (
+            {availableSizes.map((size) => (
               <button
                 key={size}
                 type="button"
@@ -739,7 +852,26 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
       </section>
 
       {/* Grade de Peças Filtradas */}
-      {filteredProducts.length > 0 ? (
+      {catalogError ? (
+        <div className="space-y-4">
+          <Alert variant="error" title="Catálogo indisponível no momento">
+            {catalogError} Verifique se o servidor da API está em execução.
+          </Alert>
+          <EmptyState
+            title="Não foi possível carregar o catálogo"
+            description="Ocorreu uma falha de comunicação ao buscar os produtos ativos no servidor."
+            actionLabel="Tentar novamente"
+            onAction={loadCatalog}
+          />
+        </div>
+      ) : isLoadingCatalog ? (
+        <div
+          data-testid="catalog-loading"
+          className="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center text-sm text-brand-muted"
+        >
+          Carregando produtos ativos do catálogo...
+        </div>
+      ) : filteredProducts.length > 0 ? (
         <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
           {filteredProducts.map((product) => (
             <ProductCard
@@ -750,6 +882,8 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
               subtitle={product.subtitle}
               price={product.price}
               installmentText={product.installmentText}
+              imageUrl={product.imageUrl}
+              imageAlt={product.imageAlt}
               sizes={product.sizes}
               colors={product.colors}
               badgeText={product.badgeText}
