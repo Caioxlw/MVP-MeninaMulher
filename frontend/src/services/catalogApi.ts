@@ -68,6 +68,48 @@ export interface PublicCatalogQueryFilters {
   categorySlug?: string;
 }
 
+export interface PublicProductDetailResult {
+  status: "ok" | "not_found" | "error";
+  product: CatalogProductItem | null;
+  errorMessage?: string;
+}
+
+/**
+ * Normaliza e ordena a lista de fotos da galeria de um produto (`RF04`, `RNF07` — PBI #22).
+ */
+export function resolveProductGalleryImages(product: {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  imageAlt?: string;
+  images?: CatalogProductImage[];
+}): CatalogProductImage[] {
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    return [...product.images]
+      .filter((img) => typeof img.url === "string" && img.url.trim().length > 0)
+      .sort((a, b) => a.position - b.position)
+      .map((img, idx) => ({
+        id: img.id || `${product.id}-img-${idx}`,
+        url: img.url.trim(),
+        altText: img.altText?.trim() || product.name,
+        position: typeof img.position === "number" ? img.position : idx,
+      }));
+  }
+
+  if (typeof product.imageUrl === "string" && product.imageUrl.trim().length > 0) {
+    return [
+      {
+        id: `${product.id}-img-0`,
+        url: product.imageUrl.trim(),
+        altText: product.imageAlt?.trim() || product.name,
+        position: 0,
+      },
+    ];
+  }
+
+  return [];
+}
+
 const CATALOG_COLOR_HEX_MAP: Record<string, string> = {
   "vermelho rubi": "#9E1B46",
   rubi: "#9E1B46",
@@ -233,15 +275,28 @@ export async function fetchPublicProducts(
 }
 
 /**
- * Busca os dados públicos de um único produto ativo em `GET /api/products/:id`.
+ * Busca os dados públicos detalhados de um único produto ativo em `GET /api/products/:id` (PBI #22 — RF04, RF05).
+ * Diferencia retorno válido (`ok`), produto inexistente/oculto (`not_found`) e falha de rede (`error`).
  */
-export async function fetchPublicProductById(
+export async function fetchPublicProductDetail(
   productId: string
-): Promise<CatalogProductItem | null> {
+): Promise<PublicProductDetailResult> {
   try {
     const response = await fetch(`/api/products/${encodeURIComponent(productId)}`);
+    if (response.status === 404) {
+      return {
+        status: "not_found",
+        product: null,
+        errorMessage: "Produto não encontrado ou indisponível no catálogo.",
+      };
+    }
+
     if (!response.ok) {
-      return null;
+      return {
+        status: "error",
+        product: null,
+        errorMessage: "Não foi possível carregar os detalhes deste produto.",
+      };
     }
 
     const data: unknown = await response.json();
@@ -252,11 +307,32 @@ export async function fetchPublicProductById(
       !("name" in data) ||
       (data as ApiPublicProductDto).active === false
     ) {
-      return null;
+      return {
+        status: "not_found",
+        product: null,
+        errorMessage: "Produto não encontrado ou indisponível no catálogo.",
+      };
     }
 
-    return mapApiProductToCatalogItem(data as ApiPublicProductDto);
+    return {
+      status: "ok",
+      product: mapApiProductToCatalogItem(data as ApiPublicProductDto),
+    };
   } catch {
-    return null;
+    return {
+      status: "error",
+      product: null,
+      errorMessage: "Não foi possível conectar ao servidor para carregar os detalhes do produto.",
+    };
   }
+}
+
+/**
+ * Busca os dados públicos de um único produto ativo em `GET /api/products/:id`.
+ */
+export async function fetchPublicProductById(
+  productId: string
+): Promise<CatalogProductItem | null> {
+  const result = await fetchPublicProductDetail(productId);
+  return result.product;
 }
