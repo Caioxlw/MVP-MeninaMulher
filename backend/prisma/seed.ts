@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { OrderStatus, PrismaClient, Role } from "@prisma/client";
-import { prisma as defaultPrisma } from "../src/lib/prisma";
+
+const defaultPrisma = new PrismaClient();
 
 function createDeterministicPasswordHash(plainPassword: string): string {
   const salt = "menina_mulher_seed_salt";
