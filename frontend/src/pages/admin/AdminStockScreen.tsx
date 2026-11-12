@@ -13,11 +13,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { useCallback, type FormEvent, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, EmptyState, Input, Modal } from "../../components/ui";
-import type { RouteDescriptor } from "../../routes/routes.config";
+import { ROUTES, type RouteDescriptor } from "../../routes/routes.config";
+import { ProductsApiError } from "../../services/productsApi";
 import {
-  INITIAL_STOCK_GROUPS,
+  StockApiError,
   type StockProductGroup,
   type StockVariationItem,
   buildVariantSku,
@@ -34,22 +35,28 @@ import {
 
 export type StockFilterStatus = "all" | "regular" | "low_stock" | "out_of_stock";
 
+interface ErrorBannerState {
+  title: string;
+  message: string;
+}
+
 const SIZE_SUGGESTIONS = ["P", "M", "G", "GG", "ÚNICO"];
 
 export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const location = useLocation();
-  const [stockGroups, setStockGroups] = useState<StockProductGroup[]>(INITIAL_STOCK_GROUPS);
-  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const [stockGroups, setStockGroups] = useState<StockProductGroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDemoData, setIsDemoData] = useState(false);
   const [searchStock, setSearchStock] = useState("");
   const [statusFilter, setStatusFilter] = useState<StockFilterStatus>("all");
 
   const [lastUpdatedText, setLastUpdatedText] = useState<string | null>(null);
-  const [errorBannerText, setErrorBannerText] = useState<string | null>(null);
+  const [errorBanner, setErrorBanner] = useState<ErrorBannerState | null>(null);
 
   // Estado do Modal de Nova Variação / Entrada de Lote
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newProductId, setNewProductId] = useState<string>(INITIAL_STOCK_GROUPS[0]?.id ?? "");
+  const [newProductId, setNewProductId] = useState<string>("");
   const [newSize, setNewSize] = useState("P");
   const [newColor, setNewColor] = useState("");
   const [newStock, setNewStock] = useState("5");
@@ -66,24 +73,39 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
   const [editQty, setEditQty] = useState("0");
   const [editError, setEditError] = useState<string | null>(null);
 
+  const redirectToLogin = useCallback(() => {
+    navigate(ROUTES.admin.login, {
+      replace: true,
+      state: { from: location.pathname },
+    });
+  }, [navigate, location.pathname]);
+
   const loadStockData = useCallback(async () => {
     setIsLoading(true);
-    setErrorBannerText(null);
+    setErrorBanner(null);
     try {
       const { groups, isDemo } = await fetchAdminStockGroups();
       setStockGroups(groups);
       setIsDemoData(isDemo);
-      if (groups.length > 0 && (!newProductId || !groups.some((g) => g.id === newProductId))) {
-        setNewProductId(groups[0].id);
-      }
-    } catch (err) {
-      setErrorBannerText(
-        err instanceof Error ? err.message : "Não foi possível carregar os dados de estoque da API."
+      setNewProductId((prev) =>
+        groups.length > 0 && (!prev || !groups.some((g) => g.id === prev)) ? groups[0].id : prev
       );
+    } catch (err) {
+      if (err instanceof ProductsApiError && err.code === "UNAUTHORIZED") {
+        redirectToLogin();
+        return;
+      }
+      setErrorBanner({
+        title: "Erro ao carregar estoque",
+        message:
+          err instanceof Error
+            ? err.message
+            : "Não foi possível carregar os dados de estoque da API.",
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [newProductId]);
+  }, [redirectToLogin]);
 
   useEffect(() => {
     void loadStockData();
@@ -122,35 +144,72 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
     };
   }, [stockGroups]);
 
-  const adjustQuantity = (groupId: string, sku: string, delta: number) => {
-    setErrorBannerText(null);
+  const handleMutationError = (
+    err: unknown,
+    previousGroups: StockProductGroup[],
+    demoSuccessText: string,
+    fallbackMessage: string
+  ) => {
+    if (err instanceof StockApiError && err.code === "UNAUTHORIZED") {
+      redirectToLogin();
+      return;
+    }
+
+    if (isDemoData && err instanceof StockApiError && err.code === "DEMO_READ_ONLY") {
+      setLastUpdatedText(demoSuccessText);
+      return;
+    }
+
+    setStockGroups(previousGroups);
+    setLastUpdatedText(null);
+    const title =
+      err instanceof StockApiError && err.code === "CONFLICT"
+        ? "Ação Bloqueada por Integridade de Pedidos"
+        : "Erro ao sincronizar estoque";
+    setErrorBanner({
+      title,
+      message: err instanceof Error ? err.message : fallbackMessage,
+    });
+  };
+
+  const adjustQuantity = async (groupId: string, variantId: string, delta: number) => {
+    setErrorBanner(null);
+    setLastUpdatedText(null);
+
+    const targetGroup = stockGroups.find((g) => g.id === groupId);
+    const targetVariation = targetGroup?.variations.find((v) => v.id === variantId);
+    if (!targetGroup || !targetVariation) return;
+
+    const nextQty = clampNonNegativeStock(targetVariation.qty + delta);
+    if (nextQty === targetVariation.qty) return;
+
+    const previousGroups = stockGroups;
+    const successText = `${targetGroup.name} · ${targetVariation.label}: ${targetVariation.qty} → ${nextQty} un. Salvo e sincronizado na vitrine da loja.`;
+
     setStockGroups((prev) =>
-      prev.map((group) => {
-        if (group.id !== groupId) return group;
-        return {
-          ...group,
-          variations: group.variations.map((v) => {
-            if (v.sku !== sku) return v;
-            const nextQty = clampNonNegativeStock(v.qty + delta);
-            if (nextQty === v.qty) return v;
-
-            setLastUpdatedText(
-              `${group.name} · ${v.label}: ${v.qty} → ${nextQty} un. Salvo e sincronizado na vitrine da loja.`
-            );
-
-            void updateProductVariant(group.id, v.id, { stock: nextQty }).catch((err) => {
-              setErrorBannerText(
-                err instanceof Error
-                  ? err.message
-                  : "Erro ao sincronizar quantidade com o servidor."
-              );
-            });
-
-            return { ...v, qty: nextQty };
-          }),
-        };
-      })
+      prev.map((group) =>
+        group.id !== groupId
+          ? group
+          : {
+              ...group,
+              variations: group.variations.map((v) =>
+                v.id === variantId ? { ...v, qty: nextQty } : v
+              ),
+            }
+      )
     );
+
+    try {
+      await updateProductVariant(groupId, variantId, { stock: nextQty });
+      setLastUpdatedText(successText);
+    } catch (err) {
+      handleMutationError(
+        err,
+        previousGroups,
+        successText,
+        "Erro ao sincronizar quantidade com o servidor."
+      );
+    }
   };
 
   const handleOpenCreateModal = (preselectedGroupId?: string) => {
@@ -164,13 +223,19 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
     setIsCreateModalOpen(true);
   };
 
-  const handleCreateVariation = (e: FormEvent) => {
+  const handleCreateVariation = async (e: FormEvent) => {
     e.preventDefault();
     setCreateError(null);
+    setErrorBanner(null);
+
+    let normalizedSize: string;
+    let normalizedColor: string;
+    let safeStock: number;
+    let targetGroup: StockProductGroup | undefined;
 
     try {
-      const normalizedSize = normalizeVariantSize(newSize);
-      const normalizedColor = normalizeVariantColor(newColor);
+      normalizedSize = normalizeVariantSize(newSize);
+      normalizedColor = normalizeVariantColor(newColor);
       const parsedStock = Number.parseInt(newStock, 10);
 
       if (Number.isNaN(parsedStock) || parsedStock < 0) {
@@ -178,8 +243,8 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         return;
       }
 
-      const safeStock = clampNonNegativeStock(parsedStock);
-      const targetGroup = stockGroups.find((g) => g.id === newProductId);
+      safeStock = clampNonNegativeStock(parsedStock);
+      targetGroup = stockGroups.find((g) => g.id === newProductId);
       if (!targetGroup) {
         setCreateError("Selecione um produto válido.");
         return;
@@ -197,60 +262,64 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         );
         return;
       }
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Dados inválidos para a variação.");
+      return;
+    }
 
-      const sku = buildVariantSku(targetGroup.code, normalizedColor, normalizedSize);
-      const newVariation: StockVariationItem = {
-        id: `var-${targetGroup.id}-${Date.now()}`,
-        sku,
-        size: normalizedSize,
-        color: normalizedColor,
-        label: `${normalizedSize} · ${normalizedColor}`,
-        colorHex: resolveColorHex(normalizedColor),
-        qty: safeStock,
-        hasOrders: false,
-      };
+    const sku = buildVariantSku(targetGroup.code, normalizedColor, normalizedSize);
+    const tempId = `var-${targetGroup.id}-${Date.now()}`;
+    const newVariation: StockVariationItem = {
+      id: tempId,
+      sku,
+      size: normalizedSize,
+      color: normalizedColor,
+      label: `${normalizedSize} · ${normalizedColor}`,
+      colorHex: resolveColorHex(normalizedColor),
+      qty: safeStock,
+      hasOrders: false,
+    };
 
-      setStockGroups((prev) =>
-        prev.map((group) =>
-          group.id === targetGroup.id
-            ? { ...group, variations: [...group.variations, newVariation] }
-            : group
-        )
-      );
+    const previousGroups = stockGroups;
+    const successText = `Nova variação ${newVariation.label} (${safeStock} un.) adicionada em ${targetGroup.name}.`;
 
-      void createProductVariant(targetGroup.id, {
+    setStockGroups((prev) =>
+      prev.map((group) =>
+        group.id === targetGroup.id
+          ? { ...group, variations: [...group.variations, newVariation] }
+          : group
+      )
+    );
+    setIsCreateModalOpen(false);
+
+    try {
+      const createdVariant = await createProductVariant(targetGroup.id, {
         size: normalizedSize,
         color: normalizedColor,
         stock: safeStock,
-      })
-        .then((createdVariant) => {
-          if (createdVariant?.id) {
-            setStockGroups((current) =>
-              current.map((g) =>
-                g.id === targetGroup.id
-                  ? {
-                      ...g,
-                      variations: g.variations.map((v) =>
-                        v.id === newVariation.id ? { ...v, id: createdVariant.id } : v
-                      ),
-                    }
-                  : g
-              )
-            );
-          }
-        })
-        .catch((err) => {
-          setErrorBannerText(
-            err instanceof Error ? err.message : "Erro ao cadastrar variação no servidor."
-          );
-        });
-
-      setLastUpdatedText(
-        `Nova variação ${newVariation.label} (${safeStock} un.) adicionada em ${targetGroup.name}.`
-      );
-      setIsCreateModalOpen(false);
+      });
+      if (createdVariant?.id) {
+        setStockGroups((current) =>
+          current.map((g) =>
+            g.id === targetGroup.id
+              ? {
+                  ...g,
+                  variations: g.variations.map((v) =>
+                    v.id === tempId ? { ...v, id: createdVariant.id } : v
+                  ),
+                }
+              : g
+          )
+        );
+      }
+      setLastUpdatedText(successText);
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : "Dados inválidos para a variação.");
+      handleMutationError(
+        err,
+        previousGroups,
+        successText,
+        "Erro ao cadastrar variação no servidor."
+      );
     }
   };
 
@@ -262,14 +331,20 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
     setEditQty(String(variation.qty));
   };
 
-  const handleSaveEditVariation = (e: FormEvent) => {
+  const handleSaveEditVariation = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingTarget) return;
     setEditError(null);
+    setErrorBanner(null);
+
+    let normalizedSize: string;
+    let normalizedColor: string;
+    let safeQty: number;
+    let targetGroup: StockProductGroup | undefined;
 
     try {
-      const normalizedSize = normalizeVariantSize(editSize);
-      const normalizedColor = normalizeVariantColor(editColor);
+      normalizedSize = normalizeVariantSize(editSize);
+      normalizedColor = normalizeVariantColor(editColor);
       const parsedQty = Number.parseInt(editQty, 10);
 
       if (Number.isNaN(parsedQty) || parsedQty < 0) {
@@ -277,8 +352,8 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         return;
       }
 
-      const safeQty = clampNonNegativeStock(parsedQty);
-      const targetGroup = stockGroups.find((g) => g.id === editingTarget.groupId);
+      safeQty = clampNonNegativeStock(parsedQty);
+      targetGroup = stockGroups.find((g) => g.id === editingTarget.groupId);
       if (!targetGroup) return;
 
       const collision = targetGroup.variations.some(
@@ -294,56 +369,68 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         );
         return;
       }
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Erro ao validar edição da variação.");
+      return;
+    }
 
-      const nextLabel = `${normalizedSize} · ${normalizedColor}`;
-      setStockGroups((prev) =>
-        prev.map((group) => {
-          if (group.id !== editingTarget.groupId) return group;
-          return {
-            ...group,
-            variations: group.variations.map((v) =>
-              v.id === editingTarget.variation.id
-                ? {
-                    ...v,
-                    size: normalizedSize,
-                    color: normalizedColor,
-                    label: nextLabel,
-                    colorHex: resolveColorHex(normalizedColor),
-                    qty: safeQty,
-                  }
-                : v
-            ),
-          };
-        })
-      );
+    const nextLabel = `${normalizedSize} · ${normalizedColor}`;
+    const previousGroups = stockGroups;
+    const successText = `Variação ${nextLabel} de ${editingTarget.productName} atualizada para ${safeQty} un.`;
+    const currentEditing = editingTarget;
 
-      void updateProductVariant(editingTarget.groupId, editingTarget.variation.id, {
+    setStockGroups((prev) =>
+      prev.map((group) => {
+        if (group.id !== currentEditing.groupId) return group;
+        return {
+          ...group,
+          variations: group.variations.map((v) =>
+            v.id === currentEditing.variation.id
+              ? {
+                  ...v,
+                  size: normalizedSize,
+                  color: normalizedColor,
+                  label: nextLabel,
+                  colorHex: resolveColorHex(normalizedColor),
+                  qty: safeQty,
+                }
+              : v
+          ),
+        };
+      })
+    );
+    setEditingTarget(null);
+
+    try {
+      await updateProductVariant(currentEditing.groupId, currentEditing.variation.id, {
         size: normalizedSize,
         color: normalizedColor,
         stock: safeQty,
-      }).catch((err) => {
-        setErrorBannerText(
-          err instanceof Error ? err.message : "Erro ao atualizar variação no servidor."
-        );
       });
-
-      setLastUpdatedText(
-        `Variação ${nextLabel} de ${editingTarget.productName} atualizada para ${safeQty} un.`
-      );
-      setEditingTarget(null);
+      setLastUpdatedText(successText);
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Erro ao validar edição da variação.");
+      handleMutationError(
+        err,
+        previousGroups,
+        successText,
+        "Erro ao atualizar variação no servidor."
+      );
     }
   };
 
-  const handleDeleteVariation = (group: StockProductGroup, variation: StockVariationItem) => {
-    setErrorBannerText(null);
+  const handleDeleteVariation = async (group: StockProductGroup, variation: StockVariationItem) => {
+    setErrorBanner(null);
+    setLastUpdatedText(null);
     if (variation.hasOrders) {
-      setErrorBannerText(
-        `Não é possível excluir a variação "${variation.label}" (${group.name}) pois ela possui pedidos vinculados. Recomendamos zerar o estoque (0 un.) para indisponibilizá-la na vitrine.`
-      );
+      setErrorBanner({
+        title: "Ação Bloqueada por Integridade de Pedidos",
+        message: `Não é possível excluir a variação "${variation.label}" (${group.name}) pois ela possui pedidos vinculados. Recomendamos zerar o estoque (0 un.) para indisponibilizá-la na vitrine.`,
+      });
       return;
     }
+
+    const previousGroups = stockGroups;
+    const successText = `Variação ${variation.label} removida de ${group.name}.`;
 
     setStockGroups((prev) =>
       prev.map((g) =>
@@ -353,13 +440,17 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
       )
     );
 
-    void deleteProductVariant(group.id, variation.id).catch((err) => {
-      setErrorBannerText(
-        err instanceof Error ? err.message : "Erro ao remover variação no servidor."
+    try {
+      await deleteProductVariant(group.id, variation.id);
+      setLastUpdatedText(successText);
+    } catch (err) {
+      handleMutationError(
+        err,
+        previousGroups,
+        successText,
+        "Erro ao remover variação no servidor."
       );
-    });
-
-    setLastUpdatedText(`Variação ${variation.label} removida de ${group.name}.`);
+    }
   };
 
   const handleExportCsv = () => {
@@ -409,10 +500,14 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
 
         return {
           ...group,
+          groupMatchesQuery,
           variations: matchingVariations,
         };
       })
-      .filter((group) => group.variations.length > 0);
+      .filter((group) => {
+        if (group.variations.length > 0) return true;
+        return statusFilter === "all" && group.groupMatchesQuery;
+      });
   }, [stockGroups, normalizedQuery, statusFilter]);
 
   return (
@@ -427,13 +522,9 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         </Alert>
       )}
 
-      {errorBannerText && (
-        <Alert
-          variant="error"
-          title="Ação Bloqueada por Integridade de Pedidos"
-          onClose={() => setErrorBannerText(null)}
-        >
-          {errorBannerText}
+      {errorBanner && (
+        <Alert variant="error" title={errorBanner.title} onClose={() => setErrorBanner(null)}>
+          {errorBanner.message}
         </Alert>
       )}
 
@@ -581,7 +672,12 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         </div>
       </section>
 
-      {filteredGroups.length === 0 ? (
+      {isLoading && stockGroups.length === 0 ? (
+        <div className="bg-brand-surface border border-brand-border rounded-2xl p-8 text-center text-sm text-brand-muted flex items-center justify-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin text-brand-primary" />
+          Carregando produtos e estoque...
+        </div>
+      ) : filteredGroups.length === 0 ? (
         <EmptyState
           title="Nenhuma variação encontrada"
           description="Não encontramos variações para o filtro ou termo pesquisado. Limpe os filtros ou cadastre uma nova variação."
@@ -639,100 +735,111 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
                   </div>
                 </div>
 
-                <div className="divide-y divide-brand-border">
-                  {group.variations.map((v) => {
-                    const statusVariant =
-                      v.qty === 0 ? "outOfStock" : v.qty <= 2 ? "lowStock" : "available";
-                    const statusLabel =
-                      v.qty === 0
-                        ? "Indisponível no site"
-                        : v.qty <= 2
-                          ? "Últimas unidades"
-                          : "Estoque regular";
+                {group.variations.length === 0 ? (
+                  <p className="text-xs text-brand-muted py-2">
+                    Nenhuma variação cadastrada ainda para este produto. Clique em &ldquo;Nova
+                    Variação&rdquo; para adicionar tamanhos, cores e estoque.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-brand-border">
+                    {group.variations.map((v) => {
+                      const statusVariant =
+                        v.qty === 0 ? "outOfStock" : v.qty <= 2 ? "lowStock" : "available";
+                      const statusLabel =
+                        v.qty === 0
+                          ? "Indisponível no site"
+                          : v.qty <= 2
+                            ? "Últimas unidades"
+                            : "Estoque regular";
 
-                    return (
-                      <div
-                        key={v.sku}
-                        className={`py-3.5 px-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                          v.alertText ? "bg-brand-soft/80 border border-brand-primary/20 my-1" : ""
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className="w-3.5 h-3.5 rounded-full border border-brand-border shrink-0"
-                              style={{ backgroundColor: v.colorHex }}
-                            />
-                            <span
-                              className={`text-sm font-bold ${
-                                v.qty === 0 ? "line-through text-brand-muted" : "text-text-primary"
-                              }`}
-                            >
-                              {v.label}
-                            </span>
-                            <span className="text-xs text-brand-muted">Ref: {v.sku}</span>
+                      return (
+                        <div
+                          key={v.id}
+                          className={`py-3.5 px-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                            v.alertText
+                              ? "bg-brand-soft/80 border border-brand-primary/20 my-1"
+                              : ""
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border border-brand-border shrink-0"
+                                style={{ backgroundColor: v.colorHex }}
+                              />
+                              <span
+                                className={`text-sm font-bold ${
+                                  v.qty === 0
+                                    ? "line-through text-brand-muted"
+                                    : "text-text-primary"
+                                }`}
+                              >
+                                {v.label}
+                              </span>
+                              <span className="text-xs text-brand-muted">Ref: {v.sku}</span>
+                            </div>
+                            {v.alertText && (
+                              <p className="text-xs font-semibold text-status-danger bg-brand-surface px-2.5 py-1 rounded-lg border border-status-danger/20 inline-block">
+                                ! {v.alertText}
+                              </p>
+                            )}
                           </div>
-                          {v.alertText && (
-                            <p className="text-xs font-semibold text-status-danger bg-brand-surface px-2.5 py-1 rounded-lg border border-status-danger/20 inline-block">
-                              ! {v.alertText}
-                            </p>
-                          )}
+
+                          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3">
+                            <Badge variant={statusVariant} dot>
+                              {statusLabel}
+                            </Badge>
+
+                            <div className="inline-flex items-center gap-1.5 bg-brand-soft border border-brand-border rounded-xl p-1">
+                              <button
+                                type="button"
+                                aria-label={`Diminuir estoque de ${v.label}`}
+                                disabled={v.qty === 0}
+                                onClick={() => void adjustQuantity(group.id, v.id, -1)}
+                                className="min-w-11 min-h-11 rounded-lg bg-brand-surface text-brand-plum hover:bg-brand-blush disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center cursor-pointer transition-colors"
+                              >
+                                <Minus className="w-4 h-4" />
+                              </button>
+                              <span
+                                data-testid={`qty-${v.sku}`}
+                                className="min-w-[36px] text-center text-sm font-bold text-text-primary"
+                              >
+                                {v.qty}
+                              </span>
+                              <button
+                                type="button"
+                                aria-label={`Aumentar estoque de ${v.label}`}
+                                onClick={() => void adjustQuantity(group.id, v.id, 1)}
+                                className="min-w-11 min-h-11 rounded-lg bg-brand-surface text-brand-plum hover:bg-brand-blush inline-flex items-center justify-center cursor-pointer transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                aria-label={`Editar variação ${v.label}`}
+                                onClick={() => handleOpenEditModal(group, v)}
+                                className="min-w-11 min-h-11 rounded-xl border border-brand-border bg-brand-surface text-brand-plum hover:bg-brand-soft inline-flex items-center justify-center cursor-pointer transition-colors"
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Remover variação ${v.label}`}
+                                onClick={() => void handleDeleteVariation(group, v)}
+                                className="min-w-11 min-h-11 rounded-xl border border-brand-border bg-brand-surface text-status-danger hover:bg-status-danger-bg inline-flex items-center justify-center cursor-pointer transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-
-                        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3">
-                          <Badge variant={statusVariant} dot>
-                            {statusLabel}
-                          </Badge>
-
-                          <div className="inline-flex items-center gap-1.5 bg-brand-soft border border-brand-border rounded-xl p-1">
-                            <button
-                              type="button"
-                              aria-label={`Diminuir estoque de ${v.label}`}
-                              disabled={v.qty === 0}
-                              onClick={() => adjustQuantity(group.id, v.sku, -1)}
-                              className="min-w-11 min-h-11 rounded-lg bg-brand-surface text-brand-plum hover:bg-brand-blush disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center cursor-pointer transition-colors"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
-                            <span
-                              data-testid={`qty-${v.sku}`}
-                              className="min-w-[36px] text-center text-sm font-bold text-text-primary"
-                            >
-                              {v.qty}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label={`Aumentar estoque de ${v.label}`}
-                              onClick={() => adjustQuantity(group.id, v.sku, 1)}
-                              className="min-w-11 min-h-11 rounded-lg bg-brand-surface text-brand-plum hover:bg-brand-blush inline-flex items-center justify-center cursor-pointer transition-colors"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              aria-label={`Editar variação ${v.label}`}
-                              onClick={() => handleOpenEditModal(group, v)}
-                              className="min-w-11 min-h-11 rounded-xl border border-brand-border bg-brand-surface text-brand-plum hover:bg-brand-soft inline-flex items-center justify-center cursor-pointer transition-colors"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Remover variação ${v.label}`}
-                              onClick={() => handleDeleteVariation(group, v)}
-                              className="min-w-11 min-h-11 rounded-xl border border-brand-border bg-brand-surface text-status-danger hover:bg-status-danger-bg inline-flex items-center justify-center cursor-pointer transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             );
           })}
