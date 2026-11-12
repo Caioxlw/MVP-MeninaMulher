@@ -1,3 +1,6 @@
+import { getAdminSession } from "./authApi";
+import { formatPriceBRL, getAdminProducts, type Product } from "./productsApi";
+
 export interface StockVariationItem {
   id: string;
   sku: string;
@@ -245,8 +248,9 @@ function buildAuthHeaders(authToken?: string): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (authToken) {
-    headers.Authorization = `Bearer ${authToken}`;
+  const token = authToken || getAdminSession()?.token;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
   return headers;
 }
@@ -336,6 +340,51 @@ export async function deleteProductVariant(
     const body = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error || "Erro ao remover variação na API.");
   }
+}
+
+export function convertProductsToStockGroups(products: Product[]): StockProductGroup[] {
+  return products.map((p) => {
+    const code =
+      p.name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase() + "-2024";
+
+    const variations: StockVariationItem[] = (p.variants || []).map((v) => {
+      const sku = buildVariantSku(code, v.color, v.size);
+      return {
+        id: v.id,
+        sku,
+        size: v.size,
+        color: v.color,
+        label: `${v.size} · ${v.color}`,
+        colorHex: resolveColorHex(v.color),
+        qty: v.stock,
+        hasOrders: false,
+      };
+    });
+
+    return {
+      id: p.id,
+      code,
+      category: p.category ? p.category.name.toUpperCase() : "GERAL",
+      name: p.name,
+      unitPrice: formatPriceBRL(p.price),
+      unitPriceNumber: p.price,
+      margin: "55%",
+      variations,
+    };
+  });
+}
+
+export async function fetchAdminStockGroups(): Promise<{
+  groups: StockProductGroup[];
+  isDemo: boolean;
+}> {
+  const result = await getAdminProducts();
+  const groups = convertProductsToStockGroups(result.data);
+  return { groups, isDemo: result.demo };
 }
 
 export function exportStockCsv(groups: StockProductGroup[]): string {

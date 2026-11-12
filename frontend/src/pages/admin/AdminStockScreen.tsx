@@ -4,13 +4,15 @@ import {
   CheckCircle2,
   Download,
   Edit3,
+  Loader2,
   Minus,
   Package,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { useCallback, type FormEvent, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Alert, Badge, Button, EmptyState, Input, Modal } from "../../components/ui";
 import type { RouteDescriptor } from "../../routes/routes.config";
@@ -23,6 +25,7 @@ import {
   createProductVariant,
   deleteProductVariant,
   exportStockCsv,
+  fetchAdminStockGroups,
   normalizeVariantColor,
   normalizeVariantSize,
   resolveColorHex,
@@ -36,17 +39,17 @@ const SIZE_SUGGESTIONS = ["P", "M", "G", "GG", "ÚNICO"];
 export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const location = useLocation();
   const [stockGroups, setStockGroups] = useState<StockProductGroup[]>(INITIAL_STOCK_GROUPS);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDemoData, setIsDemoData] = useState(false);
   const [searchStock, setSearchStock] = useState("");
   const [statusFilter, setStatusFilter] = useState<StockFilterStatus>("all");
 
-  const [lastUpdatedText, setLastUpdatedText] = useState<string | null>(
-    "Sutiã Renda Noir · M · Preto: 4 → 3 un. Salvo com sucesso no sistema e sincronizado na vitrine da loja."
-  );
+  const [lastUpdatedText, setLastUpdatedText] = useState<string | null>(null);
   const [errorBannerText, setErrorBannerText] = useState<string | null>(null);
 
   // Estado do Modal de Nova Variação / Entrada de Lote
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newProductId, setNewProductId] = useState<string>(INITIAL_STOCK_GROUPS[0]?.id ?? "srn");
+  const [newProductId, setNewProductId] = useState<string>(INITIAL_STOCK_GROUPS[0]?.id ?? "");
   const [newSize, setNewSize] = useState("P");
   const [newColor, setNewColor] = useState("");
   const [newStock, setNewStock] = useState("5");
@@ -62,6 +65,29 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
   const [editColor, setEditColor] = useState("");
   const [editQty, setEditQty] = useState("0");
   const [editError, setEditError] = useState<string | null>(null);
+
+  const loadStockData = useCallback(async () => {
+    setIsLoading(true);
+    setErrorBannerText(null);
+    try {
+      const { groups, isDemo } = await fetchAdminStockGroups();
+      setStockGroups(groups);
+      setIsDemoData(isDemo);
+      if (groups.length > 0 && (!newProductId || !groups.some((g) => g.id === newProductId))) {
+        setNewProductId(groups[0].id);
+      }
+    } catch (err) {
+      setErrorBannerText(
+        err instanceof Error ? err.message : "Não foi possível carregar os dados de estoque da API."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [newProductId]);
+
+  useEffect(() => {
+    void loadStockData();
+  }, [loadStockData]);
 
   // KPIs calculados dinamicamente a partir das variações ativas
   const metrics = useMemo(() => {
@@ -112,8 +138,12 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
               `${group.name} · ${v.label}: ${v.qty} → ${nextQty} un. Salvo e sincronizado na vitrine da loja.`
             );
 
-            void updateProductVariant(group.id, v.id, { stock: nextQty }).catch(() => {
-              // Mantém sincronização otimista local quando back-end estiver offline
+            void updateProductVariant(group.id, v.id, { stock: nextQty }).catch((err) => {
+              setErrorBannerText(
+                err instanceof Error
+                  ? err.message
+                  : "Erro ao sincronizar quantidade com o servidor."
+              );
             });
 
             return { ...v, qty: nextQty };
@@ -192,9 +222,28 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         size: normalizedSize,
         color: normalizedColor,
         stock: safeStock,
-      }).catch(() => {
-        // Fallback local já atualizado
-      });
+      })
+        .then((createdVariant) => {
+          if (createdVariant?.id) {
+            setStockGroups((current) =>
+              current.map((g) =>
+                g.id === targetGroup.id
+                  ? {
+                      ...g,
+                      variations: g.variations.map((v) =>
+                        v.id === newVariation.id ? { ...v, id: createdVariant.id } : v
+                      ),
+                    }
+                  : g
+              )
+            );
+          }
+        })
+        .catch((err) => {
+          setErrorBannerText(
+            err instanceof Error ? err.message : "Erro ao cadastrar variação no servidor."
+          );
+        });
 
       setLastUpdatedText(
         `Nova variação ${newVariation.label} (${safeStock} un.) adicionada em ${targetGroup.name}.`
@@ -272,8 +321,10 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         size: normalizedSize,
         color: normalizedColor,
         stock: safeQty,
-      }).catch(() => {
-        // Fallback local já atualizado
+      }).catch((err) => {
+        setErrorBannerText(
+          err instanceof Error ? err.message : "Erro ao atualizar variação no servidor."
+        );
       });
 
       setLastUpdatedText(
@@ -302,8 +353,10 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
       )
     );
 
-    void deleteProductVariant(group.id, variation.id).catch(() => {
-      // Fallback local já atualizado
+    void deleteProductVariant(group.id, variation.id).catch((err) => {
+      setErrorBannerText(
+        err instanceof Error ? err.message : "Erro ao remover variação no servidor."
+      );
     });
 
     setLastUpdatedText(`Variação ${variation.label} removida de ${group.name}.`);
@@ -384,6 +437,13 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         </Alert>
       )}
 
+      {isDemoData && (
+        <Alert variant="warning" title="Modo Demonstração">
+          A API do backend está indisponível ou em modo offline local. Exibindo dados de
+          demonstração.
+        </Alert>
+      )}
+
       <section className="bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-brand-primary block">
@@ -396,6 +456,20 @@ export function AdminStockScreen({ descriptor }: { descriptor: RouteDescriptor }
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void loadStockData()}
+            disabled={isLoading}
+            aria-label="Atualizar estoque"
+          >
+            {isLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            Atualizar
+          </Button>
           <Badge variant="available" dot>
             Sincronização Ativa
           </Badge>
