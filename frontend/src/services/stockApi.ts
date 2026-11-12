@@ -1,3 +1,6 @@
+import { clearAdminSession, getAdminSession } from "./authApi";
+import { formatPriceBRL, getAdminProducts, type Product } from "./productsApi";
+
 export interface StockVariationItem {
   id: string;
   sku: string;
@@ -241,23 +244,100 @@ export const INITIAL_STOCK_GROUPS: StockProductGroup[] = [
   },
 ];
 
-function buildAuthHeaders(authToken?: string): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (authToken) {
-    headers.Authorization = `Bearer ${authToken}`;
+export type StockApiErrorCode =
+  | "UNAUTHORIZED"
+  | "OFFLINE"
+  | "DEMO_READ_ONLY"
+  | "VALIDATION"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "UNKNOWN";
+
+export class StockApiError extends Error {
+  public readonly code: StockApiErrorCode;
+  public readonly status?: number;
+
+  constructor(code: StockApiErrorCode, message: string, status?: number) {
+    super(message);
+    this.name = "StockApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function buildAuthHeaders(authToken?: string, withBody = true): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (withBody) {
+    headers["Content-Type"] = "application/json";
+  }
+  const token = authToken || getAdminSession()?.token;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
   return headers;
 }
 
-export async function fetchProductVariants(productId: string): Promise<ApiVariantDto[]> {
-  const response = await fetch(`/api/products/${encodeURIComponent(productId)}/variants`);
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error || "Não foi possível carregar as variações do produto.");
+async function requestVariant<T>(
+  path: string,
+  options: { method?: string; body?: unknown; authToken?: string; fallbackError: string }
+): Promise<T> {
+  const hasBody = options.body !== undefined;
+  let response: Response;
+
+  try {
+    response = await fetch(path, {
+      method: options.method ?? "GET",
+      headers: buildAuthHeaders(options.authToken, hasBody),
+      ...(hasBody ? { body: JSON.stringify(options.body) } : {}),
+    });
+  } catch {
+    throw import.meta.env.DEV === true
+      ? new StockApiError("DEMO_READ_ONLY", "API indisponível no modo demonstração.")
+      : new StockApiError("OFFLINE", "Não foi possível conectar ao servidor de estoque.");
   }
-  return (await response.json()) as ApiVariantDto[];
+
+  if (response.ok) {
+    return (await response.json().catch(() => undefined)) as T;
+  }
+
+  const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+  const apiMessage =
+    body && typeof body.error === "string" && body.error.trim() ? body.error : null;
+
+  if (response.status === 401 || response.status === 403) {
+    clearAdminSession();
+    throw new StockApiError(
+      "UNAUTHORIZED",
+      apiMessage ?? "Sua sessão expirou. Entre novamente no painel.",
+      response.status
+    );
+  }
+
+  if (response.status >= 500 && !apiMessage) {
+    throw import.meta.env.DEV === true
+      ? new StockApiError("DEMO_READ_ONLY", "API indisponível no modo demonstração.")
+      : new StockApiError("OFFLINE", "Serviço de estoque temporariamente indisponível.");
+  }
+
+  const code: StockApiErrorCode =
+    response.status === 400
+      ? "VALIDATION"
+      : response.status === 404
+        ? "NOT_FOUND"
+        : response.status === 409
+          ? "CONFLICT"
+          : "UNKNOWN";
+
+  throw new StockApiError(code, apiMessage ?? options.fallbackError, response.status);
+}
+
+export async function fetchProductVariants(productId: string): Promise<ApiVariantDto[]> {
+  return requestVariant<ApiVariantDto[]>(
+    `/api/products/${encodeURIComponent(productId)}/variants`,
+    {
+      fallbackError: "Não foi possível carregar as variações do produto.",
+    }
+  );
 }
 
 export async function createProductVariant(
@@ -271,18 +351,12 @@ export async function createProductVariant(
     stock: clampNonNegativeStock(input.stock),
   };
 
-  const response = await fetch(`/api/products/${encodeURIComponent(productId)}/variants`, {
+  return requestVariant<ApiVariantDto>(`/api/products/${encodeURIComponent(productId)}/variants`, {
     method: "POST",
-    headers: buildAuthHeaders(authToken),
-    body: JSON.stringify(payload),
+    body: payload,
+    authToken,
+    fallbackError: "Erro ao cadastrar variação na API.",
   });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error || "Erro ao cadastrar variação na API.");
-  }
-
-  return (await response.json()) as ApiVariantDto;
 }
 
 export async function updateProductVariant(
@@ -302,21 +376,15 @@ export async function updateProductVariant(
     payload.stock = clampNonNegativeStock(input.stock);
   }
 
-  const response = await fetch(
+  return requestVariant<ApiVariantDto>(
     `/api/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`,
     {
       method: "PATCH",
-      headers: buildAuthHeaders(authToken),
-      body: JSON.stringify(payload),
+      body: payload,
+      authToken,
+      fallbackError: "Erro ao atualizar variação na API.",
     }
   );
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error || "Erro ao atualizar variação na API.");
-  }
-
-  return (await response.json()) as ApiVariantDto;
 }
 
 export async function deleteProductVariant(
@@ -324,18 +392,61 @@ export async function deleteProductVariant(
   variantId: string,
   authToken?: string
 ): Promise<void> {
-  const response = await fetch(
+  await requestVariant<unknown>(
     `/api/products/${encodeURIComponent(productId)}/variants/${encodeURIComponent(variantId)}`,
     {
       method: "DELETE",
-      headers: buildAuthHeaders(authToken),
+      authToken,
+      fallbackError: "Erro ao remover variação na API.",
     }
   );
+}
 
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error || "Erro ao remover variação na API.");
-  }
+export function convertProductsToStockGroups(products: Product[]): StockProductGroup[] {
+  return products.map((p) => {
+    const initials = p.name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase();
+    const code = `${initials || "MM"}-2024`;
+
+    const variations: StockVariationItem[] = (p.variants || []).map((v) => {
+      const sku = buildVariantSku(code, v.color, v.size);
+      return {
+        id: v.id,
+        sku,
+        size: v.size,
+        color: v.color,
+        label: `${v.size} · ${v.color}`,
+        colorHex: resolveColorHex(v.color),
+        qty: v.stock,
+        hasOrders: false,
+      };
+    });
+
+    return {
+      id: p.id,
+      code,
+      category: p.category ? p.category.name.toUpperCase() : "GERAL",
+      name: p.name,
+      unitPrice: formatPriceBRL(p.price),
+      unitPriceNumber: p.price,
+      margin: "55%",
+      variations,
+    };
+  });
+}
+
+export async function fetchAdminStockGroups(): Promise<{
+  groups: StockProductGroup[];
+  isDemo: boolean;
+}> {
+  const result = await getAdminProducts();
+  const groups = convertProductsToStockGroups(result.data);
+  return { groups, isDemo: result.demo };
 }
 
 export function exportStockCsv(groups: StockProductGroup[]): string {
