@@ -13,12 +13,10 @@ const variantLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-variantRoutes.use(variantLimiter);
-
 // Rota pública para consultar variações e saldos de estoque de um produto (RF02, US02)
 variantRoutes.get("/", variantLimiter, variantController.listByProduct);
 
-// Rotas administrativas protegidas por requireAdminAuth (RF11, RF12, US11, US12)
+// Rotas administrativas protegidas por requireAdminAuth (RF11, RF12, RF13, US09, US10)
 variantRoutes.post("/", variantLimiter, requireAdminAuth, variantController.create);
 variantRoutes.patch("/:variantId", variantLimiter, requireAdminAuth, variantController.update);
 variantRoutes.delete("/:variantId", variantLimiter, requireAdminAuth, variantController.remove);

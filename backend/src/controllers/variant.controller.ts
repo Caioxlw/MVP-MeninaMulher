@@ -1,17 +1,30 @@
 import type { Request, Response } from "express";
 import type { AuthenticatedRequest } from "../middlewares/auth.middleware";
-import { VariantError, VariantService } from "../services/variant.service";
+import {
+  type CreateVariantsPayload,
+  type UpdateVariantInput,
+  VariantError,
+  VariantService,
+  type VariantServicePort,
+} from "../services/variant.service";
 
+function extractRouteParam(req: Request, param: "productId" | "variantId"): string {
+  return String(req.params?.[param] ?? "");
+}
+
+/**
+ * Controller HTTP de variações de produto e ajuste manual de estoque (`ProductVariant`).
+ */
 export class VariantController {
-  private readonly variantService: VariantService;
+  private readonly variantService: VariantServicePort;
 
-  constructor(variantService: VariantService = new VariantService()) {
+  constructor(variantService: VariantServicePort = new VariantService()) {
     this.variantService = variantService;
   }
 
   listByProduct = async (req: Request, res: Response): Promise<void> => {
     try {
-      const productId = String(req.params.productId || "");
+      const productId = extractRouteParam(req, "productId");
       const variants = await this.variantService.listByProduct(productId);
       res.status(200).json(variants);
     } catch (error) {
@@ -21,8 +34,9 @@ export class VariantController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     try {
-      const productId = String(req.params.productId || "");
-      const created = await this.variantService.createVariants(productId, req.body);
+      const productId = extractRouteParam(req, "productId");
+      const payload = req.body as CreateVariantsPayload;
+      const created = await this.variantService.createVariants(productId, payload);
       res.status(201).json(created);
     } catch (error) {
       this.handleError(error, res);
@@ -31,14 +45,14 @@ export class VariantController {
 
   update = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
-      const productId = String(req.params.productId || "");
-      const variantId = String(req.params.variantId || "");
-      const actorId = req.user?.id;
+      const productId = extractRouteParam(req, "productId");
+      const variantId = extractRouteParam(req, "variantId");
+      const input = req.body as UpdateVariantInput;
       const updated = await this.variantService.updateVariant(
         productId,
         variantId,
-        req.body,
-        actorId
+        input,
+        req.user?.id
       );
       res.status(200).json(updated);
     } catch (error) {
@@ -48,8 +62,8 @@ export class VariantController {
 
   remove = async (req: Request, res: Response): Promise<void> => {
     try {
-      const productId = String(req.params.productId || "");
-      const variantId = String(req.params.variantId || "");
+      const productId = extractRouteParam(req, "productId");
+      const variantId = extractRouteParam(req, "variantId");
       await this.variantService.deleteVariant(productId, variantId);
       res.status(200).json({ message: "Variação removida com sucesso." });
     } catch (error) {
