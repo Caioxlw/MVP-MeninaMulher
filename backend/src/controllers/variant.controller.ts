@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import type { AuthenticatedRequest } from "../middlewares/auth.middleware";
 import { VariantError, VariantService } from "../services/variant.service";
 
 export class VariantController {
@@ -28,11 +29,17 @@ export class VariantController {
     }
   };
 
-  update = async (req: Request, res: Response): Promise<void> => {
+  update = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const productId = String(req.params.productId || "");
       const variantId = String(req.params.variantId || "");
-      const updated = await this.variantService.updateVariant(productId, variantId, req.body);
+      const actorId = req.user?.id;
+      const updated = await this.variantService.updateVariant(
+        productId,
+        variantId,
+        req.body,
+        actorId
+      );
       res.status(200).json(updated);
     } catch (error) {
       this.handleError(error, res);

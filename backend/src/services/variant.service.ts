@@ -49,16 +49,36 @@ export interface ProductExistsPort {
   findAdminById?: (id: string) => Promise<{ id: string } | null>;
 }
 
+export interface StockAdjustmentLogEntry {
+  event: "STOCK_ADJUSTMENT";
+  productId: string;
+  variantId: string;
+  previousStock: number;
+  newStock: number;
+  delta: number;
+  actorId?: string;
+  timestamp: string;
+}
+
+export type StockAdjustmentLogger = (entry: StockAdjustmentLogEntry) => void;
+
+const defaultStockLogger: StockAdjustmentLogger = (entry) => {
+  console.info(JSON.stringify(entry));
+};
+
 export class VariantService {
   private readonly variantRepository: VariantRepositoryPort;
   private readonly productRepository: ProductExistsPort;
+  private readonly stockLogger: StockAdjustmentLogger;
 
   constructor(
     variantRepository: VariantRepositoryPort = new VariantRepository(),
-    productRepository: ProductExistsPort = new ProductRepository()
+    productRepository: ProductExistsPort = new ProductRepository(),
+    stockLogger: StockAdjustmentLogger = defaultStockLogger
   ) {
     this.variantRepository = variantRepository;
     this.productRepository = productRepository;
+    this.stockLogger = stockLogger;
   }
 
   private async ensureProductExists(productId: string): Promise<void> {
@@ -200,13 +220,13 @@ export class VariantService {
   async updateVariant(
     productId: string,
     variantId: string,
-    input: VariantInputItem
+    input: VariantInputItem,
+    actorId?: string
   ): Promise<ProductVariant> {
     await this.ensureProductExists(productId);
 
-    const existing = await this.variantRepository.findById(variantId);
-    if (!existing || existing.productId !== productId) {
-      throw new VariantError("Variação não encontrada para este produto.", 404);
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw new VariantError("Dados da variação inválidos.", 400);
     }
 
     const updateData: UpdateVariantData = {};
@@ -219,6 +239,22 @@ export class VariantService {
     }
     if (input.stock !== undefined) {
       updateData.stock = this.normalizeStock(input.stock, false);
+    }
+
+    if (
+      updateData.size === undefined &&
+      updateData.color === undefined &&
+      updateData.stock === undefined
+    ) {
+      throw new VariantError(
+        "Informe ao menos um campo válido para atualização (size, color ou stock).",
+        400
+      );
+    }
+
+    const existing = await this.variantRepository.findById(variantId);
+    if (!existing || existing.productId !== productId) {
+      throw new VariantError("Variação não encontrada para este produto.", 404);
     }
 
     const nextSize = updateData.size ?? existing.size;
@@ -239,7 +275,26 @@ export class VariantService {
       }
     }
 
-    return this.variantRepository.update(variantId, updateData);
+    const updated = await this.variantRepository.update(variantId, updateData);
+
+    if (updateData.stock !== undefined && updated.stock !== existing.stock) {
+      try {
+        this.stockLogger({
+          event: "STOCK_ADJUSTMENT",
+          productId,
+          variantId,
+          previousStock: existing.stock,
+          newStock: updated.stock,
+          delta: updated.stock - existing.stock,
+          ...(actorId ? { actorId } : {}),
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // Falhas no logger não devem reverter nem falhar a persistência do ajuste de estoque
+      }
+    }
+
+    return updated;
   }
 
   async deleteVariant(productId: string, variantId: string): Promise<void> {

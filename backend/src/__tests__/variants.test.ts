@@ -33,7 +33,6 @@ describe("Integração HTTP — Variações de Produto (PBI #18 / Task #89)", ()
 
     adminToken = signJwt({
       sub: admin.id,
-      email: admin.email,
       role: admin.role,
     });
 
