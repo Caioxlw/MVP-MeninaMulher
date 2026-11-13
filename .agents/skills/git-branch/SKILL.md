@@ -76,6 +76,14 @@ Quando o usuário pedir para resolver uma issue `#<N>` (ex: *"vamos resolver a i
      - **Branch Específica (Trabalho)**: corresponde ao **PBI `#<N>`**.
    - **Caso C — A issue `#<N>` não possui issue pai (ou é um `hotfix` direto)**:
      - A branch base é a própria `main`, e a branch criada é `<tipo>/<N>-<slug>`.
+3. **Verificar Dependências (`blocked_by`)**:
+   Antes de criar qualquer branch, verifique se a issue `#<N>` (ou seu PBI pai, caso `#<N>` seja uma `TASK`) possui dependências abertas no GitHub:
+   ```powershell
+   gh api repos/Caioxlw/MVP-MeninaMulher/issues/<N>/dependencies/blocked_by
+   ```
+   - Se houver alguma issue bloqueadora com `state == "open"`, **NÃO crie a branch ainda**.
+   - Faça uma pergunta ao usuário avisando que o backend ainda não está pronto (citando as issues bloqueadoras abertas) e que não vai ter onde conectar o front, perguntando se **deseja continuar mesmo assim ou não**.
+   - Só prossiga para o **Passo 2** se o usuário confirmar que deseja continuar.
 
 ### Passo 2: Verificar Estado do Repositório Local
 1. Execute `git status` para garantir que não há alterações não commitadas que seriam levadas acidentalmente.
