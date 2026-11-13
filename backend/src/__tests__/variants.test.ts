@@ -1,10 +1,11 @@
 import request from "supertest";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { signJwt } from "../lib/security";
 import { app, prisma } from "../server";
 
 describe("Integração HTTP — Variações de Produto (PBI #18 / Task #89)", () => {
   let adminToken: string;
+  let adminId: string;
   let productId: string;
   let otherProductId: string;
 
@@ -28,10 +29,10 @@ describe("Integração HTTP — Variações de Produto (PBI #18 / Task #89)", ()
         role: "ADMIN",
       },
     });
+    adminId = admin.id;
 
     adminToken = signJwt({
       sub: admin.id,
-      email: admin.email,
       role: admin.role,
     });
 
@@ -256,5 +257,145 @@ describe("Integração HTTP — Variações de Produto (PBI #18 / Task #89)", ()
       .post(`/api/products/${productId}/variants`)
       .send({ size: "P", color: "Preto", stock: 2 });
     expect(unauthPost.status).toBe(401);
+  });
+
+  describe("Ajuste Manual de Estoque (PBI #19 / Task #175 [red])", () => {
+    it("Cenário 6: deve ajustar estoque positivo e zero via PATCH, persistir no banco e emitir log estruturado STOCK_ADJUSTMENT", async () => {
+      const variant = await prisma.productVariant.create({
+        data: { productId, size: "M", color: "Preto", stock: 5 },
+      });
+
+      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+      try {
+        const replenishRes = await request(app)
+          .patch(`/api/products/${productId}/variants/${variant.id}`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ stock: 12 });
+
+        expect(replenishRes.status).toBe(200);
+        expect(replenishRes.body).toMatchObject({
+          id: variant.id,
+          productId,
+          stock: 12,
+        });
+
+        const zeroRes = await request(app)
+          .patch(`/api/products/${productId}/variants/${variant.id}`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ stock: 0 });
+
+        expect(zeroRes.status).toBe(200);
+        expect(zeroRes.body.stock).toBe(0);
+
+        const sameStockRes = await request(app)
+          .patch(`/api/products/${productId}/variants/${variant.id}`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ stock: 0 });
+
+        expect(sameStockRes.status).toBe(200);
+
+        const stockLogs = infoSpy.mock.calls
+          .map((call) => {
+            const firstArg = call[0];
+            if (typeof firstArg === "string") {
+              try {
+                return JSON.parse(firstArg) as Record<string, unknown>;
+              } catch {
+                return null;
+              }
+            }
+            if (firstArg && typeof firstArg === "object") {
+              return firstArg as Record<string, unknown>;
+            }
+            return null;
+          })
+          .filter((entry) => entry?.event === "STOCK_ADJUSTMENT");
+
+        expect(stockLogs).toHaveLength(2);
+        expect(stockLogs[0]).toMatchObject({
+          event: "STOCK_ADJUSTMENT",
+          productId,
+          variantId: variant.id,
+          previousStock: 5,
+          newStock: 12,
+          delta: 7,
+          actorId: adminId,
+        });
+        expect(stockLogs[1]).toMatchObject({
+          event: "STOCK_ADJUSTMENT",
+          productId,
+          variantId: variant.id,
+          previousStock: 12,
+          newStock: 0,
+          delta: -12,
+          actorId: adminId,
+        });
+
+        const persisted = await prisma.productVariant.findUnique({
+          where: { id: variant.id },
+        });
+        expect(persisted?.stock).toBe(0);
+      } finally {
+        infoSpy.mockRestore();
+      }
+    });
+
+    it("Cenário 7: deve rejeitar stock negativo, decimal, string ou corpo vazio (400) mantendo o saldo intacto e bloquear sem token ADMIN (401)", async () => {
+      const variant = await prisma.productVariant.create({
+        data: { productId, size: "G", color: "Rubi", stock: 7 },
+      });
+
+      const unauthPatch = await request(app)
+        .patch(`/api/products/${productId}/variants/${variant.id}`)
+        .send({ stock: 10 });
+      expect(unauthPatch.status).toBe(401);
+
+      const invalidBodies: Array<Record<string, unknown>> = [
+        { stock: -2 },
+        { stock: 3.5 },
+        { stock: "5" },
+        {},
+      ];
+
+      for (const body of invalidBodies) {
+        const res = await request(app)
+          .patch(`/api/products/${productId}/variants/${variant.id}`)
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send(body);
+
+        expect(res.status).toBe(400);
+      }
+
+      const persisted = await prisma.productVariant.findUnique({
+        where: { id: variant.id },
+      });
+      expect(persisted?.stock).toBe(7);
+    });
+
+    it("Cenário 8: deve retornar 404 para produto/variação inexistente ou de outro produto e garantir CHECK contra saldo negativo no banco (RNF09)", async () => {
+      const otherVariant = await prisma.productVariant.create({
+        data: { productId: otherProductId, size: "P", color: "Areia", stock: 3 },
+      });
+
+      const missingProductRes = await request(app)
+        .patch(`/api/products/00000000-0000-0000-0000-000000000000/variants/${otherVariant.id}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ stock: 9 });
+      expect(missingProductRes.status).toBe(404);
+
+      const wrongOwnerRes = await request(app)
+        .patch(`/api/products/${productId}/variants/${otherVariant.id}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ stock: 9 });
+      expect(wrongOwnerRes.status).toBe(404);
+
+      await expect(
+        prisma.productVariant.update({
+          where: { id: otherVariant.id },
+          data: { stock: -1 },
+        })
+      ).rejects.toThrow();
+    });
   });
 });

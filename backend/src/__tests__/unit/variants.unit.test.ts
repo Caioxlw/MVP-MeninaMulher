@@ -48,6 +48,17 @@ interface VariantRepositoryModule {
   };
 }
 
+interface StockAdjustmentLogEntry {
+  event: "STOCK_ADJUSTMENT";
+  productId: string;
+  variantId: string;
+  previousStock: number;
+  newStock: number;
+  delta: number;
+  actorId?: string;
+  timestamp: string;
+}
+
 interface VariantServiceModule {
   VariantError: new (
     message: string,
@@ -57,7 +68,8 @@ interface VariantServiceModule {
   };
   VariantService: new (
     variantRepo?: unknown,
-    productRepo?: unknown
+    productRepo?: unknown,
+    stockLogger?: (entry: StockAdjustmentLogEntry) => void
   ) => {
     listByProduct: (productId: string) => Promise<VariantRecord[]>;
     createVariants: (
@@ -79,7 +91,8 @@ interface VariantServiceModule {
         size?: unknown;
         color?: unknown;
         stock?: unknown;
-      }
+      },
+      actorId?: string
     ) => Promise<VariantRecord>;
     deleteVariant: (productId: string, variantId: string) => Promise<void>;
   };
@@ -402,6 +415,230 @@ describe("Unidade — Camada de Variações de Produto (Task #89 [red])", () => 
       );
 
       expect(statusMock).toHaveBeenLastCalledWith(409);
+    });
+  });
+
+  describe("Ajuste Manual de Estoque (PBI #19 / Task #175 [red])", () => {
+    it("deve atualizar stock para 0 ou positivo e emitir log estruturado STOCK_ADJUSTMENT quando o saldo mudar", async () => {
+      const { VariantService } = await loadModule<VariantServiceModule>(
+        "../../services/variant.service"
+      );
+
+      let currentStock = 5;
+      const mockUpdate = vi.fn().mockImplementation(async (_id, data) => {
+        currentStock = data.stock ?? currentStock;
+        return {
+          id: "var-1",
+          productId: "prod-1",
+          size: "M",
+          color: "Preto",
+          stock: currentStock,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      });
+      const mockFindById = vi.fn().mockImplementation(async () => ({
+        id: "var-1",
+        productId: "prod-1",
+        size: "M",
+        color: "Preto",
+        stock: currentStock,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+      const mockStockLogger = vi.fn();
+
+      const service = new VariantService(
+        {
+          findByProductId: vi.fn(),
+          findById: mockFindById,
+          findByProductSizeColorInsensitive: vi.fn(),
+          create: vi.fn(),
+          createManyAtomic: vi.fn(),
+          update: mockUpdate,
+          delete: vi.fn(),
+          hasOrderItems: vi.fn(),
+        },
+        {
+          findById: vi.fn().mockResolvedValue({ id: "prod-1" }),
+        },
+        mockStockLogger
+      );
+
+      const zeroed = await service.updateVariant("prod-1", "var-1", { stock: 0 }, "admin-1");
+      expect(zeroed.stock).toBe(0);
+      expect(mockStockLogger).toHaveBeenCalledTimes(1);
+      expect(mockStockLogger).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          event: "STOCK_ADJUSTMENT",
+          productId: "prod-1",
+          variantId: "var-1",
+          previousStock: 5,
+          newStock: 0,
+          delta: -5,
+          actorId: "admin-1",
+          timestamp: expect.any(String),
+        })
+      );
+
+      const replenished = await service.updateVariant("prod-1", "var-1", { stock: 12 }, "admin-1");
+      expect(replenished.stock).toBe(12);
+      expect(mockStockLogger).toHaveBeenCalledTimes(2);
+      expect(mockStockLogger).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          event: "STOCK_ADJUSTMENT",
+          productId: "prod-1",
+          variantId: "var-1",
+          previousStock: 0,
+          newStock: 12,
+          delta: 12,
+          actorId: "admin-1",
+          timestamp: expect.any(String),
+        })
+      );
+
+      const unchanged = await service.updateVariant("prod-1", "var-1", { stock: 12 }, "admin-1");
+      expect(unchanged.stock).toBe(12);
+      expect(mockStockLogger).toHaveBeenCalledTimes(2);
+    });
+
+    it("deve rejeitar stock negativo, decimal, NaN, null, string ou PATCH vazio com erro 400", async () => {
+      const { VariantService } = await loadModule<VariantServiceModule>(
+        "../../services/variant.service"
+      );
+
+      const mockUpdate = vi.fn();
+      const mockStockLogger = vi.fn();
+
+      const service = new VariantService(
+        {
+          findByProductId: vi.fn(),
+          findById: vi.fn().mockResolvedValue({
+            id: "var-1",
+            productId: "prod-1",
+            size: "P",
+            color: "Nude",
+            stock: 4,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+          findByProductSizeColorInsensitive: vi.fn(),
+          create: vi.fn(),
+          createManyAtomic: vi.fn(),
+          update: mockUpdate,
+          delete: vi.fn(),
+          hasOrderItems: vi.fn(),
+        },
+        {
+          findById: vi.fn().mockResolvedValue({ id: "prod-1" }),
+        },
+        mockStockLogger
+      );
+
+      const invalidPayloads: Array<Record<string, unknown>> = [
+        { stock: -1 },
+        { stock: 2.5 },
+        { stock: Number.NaN },
+        { stock: null },
+        { stock: "10" },
+        {},
+      ];
+
+      for (const payload of invalidPayloads) {
+        await expect(
+          service.updateVariant("prod-1", "var-1", payload, "admin-1")
+        ).rejects.toMatchObject({ statusCode: 400 });
+      }
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockStockLogger).not.toHaveBeenCalled();
+    });
+
+    it("deve retornar 404 quando produto ou variação não existir ou não pertencer ao produto", async () => {
+      const { VariantService } = await loadModule<VariantServiceModule>(
+        "../../services/variant.service"
+      );
+
+      const serviceWithoutProduct = new VariantService(
+        {
+          findByProductId: vi.fn(),
+          findById: vi.fn(),
+          findByProductSizeColorInsensitive: vi.fn(),
+          create: vi.fn(),
+          createManyAtomic: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          hasOrderItems: vi.fn(),
+        },
+        {
+          findById: vi.fn().mockResolvedValue(null),
+        }
+      );
+
+      await expect(
+        serviceWithoutProduct.updateVariant("prod-missing", "var-1", { stock: 5 })
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      const serviceWithoutVariant = new VariantService(
+        {
+          findByProductId: vi.fn(),
+          findById: vi.fn().mockResolvedValue(null),
+          findByProductSizeColorInsensitive: vi.fn(),
+          create: vi.fn(),
+          createManyAtomic: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          hasOrderItems: vi.fn(),
+        },
+        {
+          findById: vi.fn().mockResolvedValue({ id: "prod-1" }),
+        }
+      );
+
+      await expect(
+        serviceWithoutVariant.updateVariant("prod-1", "var-missing", { stock: 5 })
+      ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it("deve encaminhar req.user.id como actorId no VariantController.update e retornar 200 OK", async () => {
+      const { VariantController } = await loadModule<VariantControllerModule>(
+        "../../controllers/variant.controller"
+      );
+
+      const mockUpdateVariant = vi.fn().mockResolvedValue({
+        id: "var-1",
+        productId: "prod-1",
+        size: "M",
+        color: "Preto",
+        stock: 8,
+      });
+
+      const controller = new VariantController({
+        listByProduct: vi.fn(),
+        createVariants: vi.fn(),
+        updateVariant: mockUpdateVariant,
+        deleteVariant: vi.fn(),
+      });
+
+      const statusMock = vi.fn().mockReturnThis();
+      const jsonMock = vi.fn().mockReturnThis();
+      const res = {
+        status: statusMock,
+        json: jsonMock,
+      } as unknown as Response;
+
+      await controller.update(
+        {
+          params: { productId: "prod-1", variantId: "var-1" },
+          body: { stock: 8 },
+          user: { id: "admin-99", email: "admin@meninamulher.com", role: "ADMIN" },
+        } as unknown as Request,
+        res
+      );
+
+      expect(mockUpdateVariant).toHaveBeenCalledWith("prod-1", "var-1", { stock: 8 }, "admin-99");
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ id: "var-1", stock: 8 }));
     });
   });
 });
