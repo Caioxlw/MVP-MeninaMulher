@@ -132,3 +132,38 @@ Quando o usuário pedir para resolver uma issue `#<N>` (ex: *"vamos resolver a i
     git push -u origin <branch-especifica>
     ```
   - O Pull Request da `<branch-especifica>` no GitHub **deve ter como base (`base branch`) a `<branch-geral>`** (e não a `main`), consolidando as entregas na branch geral da funcionalidade antes da integração final na `main`.
+
+---
+
+## 4. Ciclo de Vida e Fechamento de Issues (TASK $\rightarrow$ PBI $\rightarrow$ EPIC)
+
+O fechamento de demandas e a marcação de checkboxes no GitHub seguem uma governança estrita em cascata:
+
+### A. Conclusão de uma TASK (Filha de PBI)
+1. **Merge no PBI**: Quando o Pull Request da TASK for mesclado na branch base do PBI (`<branch-geral>`):
+   - Marcar todos os checkboxes da descrição da TASK como concluídos (`- [x]`).
+   - Fechar a issue da TASK imediatamente via GitHub CLI:
+     ```powershell
+     gh issue close <N_TASK> --comment "Concluído via PR #<NUM_PR> e integrado na branch <branch-geral>."
+     ```
+   > **Nota Técnica**: Como o GitHub nativamente só fecha issues de forma automática quando commits contendo `closes #N` entram diretamente na branch padrão (`main`), o fechamento explícito da TASK via CLI ao integrar na branch do PBI é **obrigatório** para manter o status e os contadores de sub-issues do GitHub atualizados.
+
+### B. Conclusão de um PBI (Filho de EPIC)
+1. **Verificação das Sub-issues**: O PBI só pode ser integrado na `main` quando todas as suas TASKs filhas estiverem fechadas (`subIssuesSummary.completed == total`).
+2. **Atualização da Issue**: Marcar todos os critérios de aceitação do PBI como concluídos (`- [x]`).
+3. **Pull Request para a `main`**:
+   - Abrir o PR da `<branch-geral>` apontando para a `main`.
+   - Garantir que todos os checks de CI (testes, lint, SAST, build) passem com 100% de sucesso.
+4. **Merge e Fechamento**:
+   - Após o merge na `main`, fechar a issue do PBI:
+     ```powershell
+     gh issue close <N_PBI> --comment "PBI concluído e integrado na branch main via PR #<NUM_PR>."
+     ```
+
+### C. Conclusão de um EPIC
+1. Quando todos os PBIs pertencentes ao EPIC tiverem suas branches integradas na `main` e suas respectivas issues fechadas:
+   - Marcar todos os itens e critérios do EPIC como concluídos (`- [x]`).
+   - Fechar a issue do EPIC:
+     ```powershell
+     gh issue close <N_EPIC> --comment "Épico concluído com todos os PBIs entregues em produção (main)."
+     ```
