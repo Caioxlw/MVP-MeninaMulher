@@ -224,8 +224,53 @@ docker compose up -d --build
 
 - `GET /api/products/:productId/variants` - Lista todas as variações (`id`, `size`, `color`, `stock`) de um produto ordenadas por tamanho e cor, ou retorna `404 Not Found` se o produto não existir (Público — `RF02`, `RF04`, `US02`, `US03`)
 - `POST /api/products/:productId/variants` - Cria uma variação individual (`{ size, color, stock? }`) ou um lote atômico (`{ variants: [...] }`) em transação, padronizando `size` para `UPPERCASE`, aplicando `trim()` em `color`, validando `stock >= 0` inteiro e bloqueando colisões case-insensitive com `409 Conflict` (`ADMIN` — `RF11`, `RF12`, `RNF09`, `US09`, `US10`)
-- `PATCH /api/products/:productId/variants/:variantId` - Atualiza `size`, `color` e/ou `stock` (`>= 0`) de uma variação pertencente ao produto, bloqueando colisões de combinação com `409 Conflict` (`ADMIN` — `RF11`, `RF12`, `US10`)
+- `PATCH /api/products/:productId/variants/:variantId` - Atualiza `size`, `color` e/ou `stock` (`>= 0`) de uma variação pertencente ao produto, bloqueando colisões de combinação com `409 Conflict` (`ADMIN` — `RF11`, `RF12`, `RF13`, `US10`)
 - `DELETE /api/products/:productId/variants/:variantId` - Remove uma variação sem histórico de vendas ou retorna `409 Conflict` amigável orientando zerar o estoque (`stock = 0`) caso já possua `OrderItem` vinculado (`ADMIN` — `RF11`, `RF12`, `RNF09`)
+
+### Ajuste Manual de Estoque (`PBI #19`)
+
+Permite à empresária atualizar rapidamente o saldo em estoque (`stock >= 0`) de uma variação após vendas físicas ou reposição de mercadorias (`RF11`, `RF13`, `RNF04`, `RNF09`, `US10`).
+
+- **Endpoint**: `PATCH /api/products/:productId/variants/:variantId`
+- **Acesso**: `ADMIN` (`Authorization: Bearer <token>`)
+- **Parâmetros de Rota**:
+  - `productId`: ID do produto proprietário da variação
+  - `variantId`: ID da variação a ter o saldo atualizado
+
+**Exemplo de Requisição (`cURL`)**:
+
+```bash
+curl -X PATCH http://localhost:3001/api/products/<productId>/variants/<variantId> \
+  -H "Authorization: Bearer <token_admin>" \
+  -H "Content-Type: application/json" \
+  -d '{ "stock": 10 }'
+```
+
+**Respostas Previstas**:
+
+| Status             | Descrição                                                                                                                            |
+| :----------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| `200 OK`           | Retorna o objeto completo da variação (`id`, `productId`, `size`, `color`, `stock`, `createdAt`, `updatedAt`) com o saldo atualizado |
+| `400 Bad Request`  | Rejeita valores negativos, decimais, strings não numéricas ou payload sem campos válidos                                             |
+| `401 Unauthorized` | Token JWT ausente, inválido ou expirado                                                                                              |
+| `404 Not Found`    | Produto inexistente ou variação não pertencente ao `productId` informado                                                             |
+
+**Log Estruturado de Auditoria (`STOCK_ADJUSTMENT`)**:
+
+Sempre que o saldo em estoque (`stock`) for efetivamente alterado, a camada de serviço emite no log da aplicação (`console.info`) um evento JSON estruturado:
+
+```json
+{
+  "event": "STOCK_ADJUSTMENT",
+  "productId": "prod_123",
+  "variantId": "var_456",
+  "previousStock": 5,
+  "newStock": 10,
+  "delta": 5,
+  "actorId": "admin_789",
+  "timestamp": "2026-11-12T22:00:00.000Z"
+}
+```
 
 ### Upload de Mídia (`PBI #13`)
 
