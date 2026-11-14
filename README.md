@@ -291,6 +291,31 @@ Todas as variações retornadas pelas rotas de produtos (`GET /api/products`, `G
     - `404 Not Found`: Produto ou variação inexistente (ou não pertencente ao produto).
     - `409 Conflict`: Variação esgotada (`stock === 0`) ou quantidade solicitada superior ao saldo disponível (`quantity > stock`).
 
+### Pedidos Administrativos (`PBI #31`)
+
+Permite à empresária listar, consultar detalhes, confirmar ou cancelar pedidos pendentes registrados pelo fluxo WhatsApp $\rightarrow$ Painel (`RF14`, `RF15`, `RNF05`, `RNF06`, `US12`):
+
+- `GET /api/admin/orders` - Lista pedidos ordenados por `createdAt desc`, com filtro opcional `?status=PENDING|CONFIRMED|CANCELLED` e paginação (`?page=1&limit=20`, máximo `limit=100`). Retorna os itens achatados (`variantId`, `quantity`, `unitPrice`, `size`, `color`, `productName`) sem expor dados pessoais de clientes (`ADMIN` — `RF14`, `RNF05`, `RNF06`).
+- `GET /api/admin/orders/:id` - Consulta os detalhes completos de um pedido específico e seus itens, ou retorna `404 Not Found` se o pedido não existir (`ADMIN` — `RF14`, `RNF05`, `RNF06`).
+- `PATCH /api/admin/orders/:id/confirm` - Confirma um pedido com status `PENDING` (`PENDING -> CONFIRMED`), retornando `200 OK`, `404 Not Found` se inexistente ou `409 Conflict` se já estiver `CONFIRMED` ou `CANCELLED` (`ADMIN` — `RF15`, `RNF05`).
+- `PATCH /api/admin/orders/:id/cancel` - Cancela um pedido com status `PENDING` (`PENDING -> CANCELLED`), retornando `200 OK`, `404 Not Found` se inexistente ou `409 Conflict` se já estiver `CONFIRMED` ou `CANCELLED` (`ADMIN` — `RF15`, `RNF05`).
+
+**Log Estruturado de Auditoria (`ORDER_STATUS_CHANGE`)**:
+
+Sempre que um pedido tem seu status alterado via confirmação ou cancelamento, o `OrderService` emite no log da aplicação (`console.info`) um evento JSON estruturado:
+
+```json
+{
+  "event": "ORDER_STATUS_CHANGE",
+  "orderId": "ord_123",
+  "orderNumber": 1001,
+  "previousStatus": "PENDING",
+  "newStatus": "CONFIRMED",
+  "actorId": "admin_789",
+  "timestamp": "2026-11-14T07:10:00.000Z"
+}
+```
+
 ### Upload de Mídia (`PBI #13`)
 
 - `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`)

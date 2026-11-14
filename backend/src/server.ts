@@ -8,6 +8,7 @@ import { upload } from "./lib/upload";
 import { requireAdminAuth } from "./middlewares/auth.middleware";
 import { authRoutes } from "./routes/auth.routes";
 import { categoryRoutes } from "./routes/category.routes";
+import { adminOrderRoutes } from "./routes/order.routes";
 import { adminProductRoutes, productRoutes } from "./routes/product.routes";
 
 dotenv.config();
@@ -37,6 +38,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/admin/products", adminProductRoutes);
+
+// Rotas Administrativas de Pedidos (PBI #31 - RF14, RF15, RNF05)
+app.use("/api/admin/orders", adminOrderRoutes);
 
 // Endpoint de Informações da Aplicação
 app.get("/api/info", (_req: Request, res: Response) => {
