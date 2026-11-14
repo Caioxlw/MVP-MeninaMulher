@@ -218,4 +218,53 @@ describe("Integração HTTP — Gerenciamento de Produtos e Categorias (PBI #16 
       expect(deleteConflictRes.body.error).toMatch(/ocult/i);
     });
   });
+
+  describe("Disponibilidade nas rotas de Produto (PBI #21 / Task #191 [red])", () => {
+    it("GET /api/products e GET /api/products/:id devem incluir availabilityStatus, availabilityLabel e available em cada variação", async () => {
+      const listRes = await request(app).get("/api/products");
+      expect(listRes.status).toBe(200);
+
+      const allVariants = (
+        listRes.body as Array<{ variants: Array<Record<string, unknown>> }>
+      ).flatMap((p) => p.variants ?? []);
+      expect(allVariants.length).toBeGreaterThan(0);
+
+      for (const variant of allVariants) {
+        expect(variant).toEqual(
+          expect.objectContaining({
+            availabilityStatus: expect.stringMatching(/^(OUT_OF_STOCK|LOW_STOCK|AVAILABLE)$/),
+            availabilityLabel: expect.stringMatching(/^(esgotado|últimas unidades|disponível)$/),
+            available: expect.any(Boolean),
+          })
+        );
+      }
+
+      const activeId = "00000000-0000-4000-8000-000000000001";
+      const detailRes = await request(app).get(`/api/products/${activeId}`);
+      expect(detailRes.status).toBe(200);
+      expect(Array.isArray(detailRes.body.variants)).toBe(true);
+      expect(detailRes.body.variants.length).toBeGreaterThan(0);
+
+      for (const variant of detailRes.body.variants as Array<{
+        stock: number;
+        availabilityStatus: string;
+        availabilityLabel: string;
+        available: boolean;
+      }>) {
+        if (variant.stock === 0) {
+          expect(variant.availabilityStatus).toBe("OUT_OF_STOCK");
+          expect(variant.availabilityLabel).toBe("esgotado");
+          expect(variant.available).toBe(false);
+        } else if (variant.stock <= 3) {
+          expect(variant.availabilityStatus).toBe("LOW_STOCK");
+          expect(variant.availabilityLabel).toBe("últimas unidades");
+          expect(variant.available).toBe(true);
+        } else {
+          expect(variant.availabilityStatus).toBe("AVAILABLE");
+          expect(variant.availabilityLabel).toBe("disponível");
+          expect(variant.available).toBe(true);
+        }
+      }
+    });
+  });
 });
