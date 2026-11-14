@@ -37,9 +37,9 @@ jobs:
         env:
           TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          MSG=$(git log -1 --pretty=%B "$TARGET_SHA" | tr '\n' ' ')
+          MSG=$(git log -1 --pretty=%s "$TARGET_SHA")
           echo "commit_message=$MSG" >> "$GITHUB_OUTPUT"
-          echo "Detected commit message: $MSG"
+          echo "Detected commit subject: $MSG"
 
       - name: Check modified paths
         uses: dorny/paths-filter@v3

@@ -129,4 +129,21 @@ describe("Avaliador do Ciclo TDD no CI ([red], [green], [refactor])", () => {
     expect(refactorPass.mode).toBe("refactor");
     expect(refactorPass.allowed).toBe(true);
   });
+
+  it("deve ignorar tags [red] no corpo de squash merges na main quando o título for [refactor] ou [green]", () => {
+    const squashOnMain = evaluateTddRun(
+      {
+        commitMessage:
+          "feat(variants): ajustar estoque na API [refactor] (#186)\n\n* test(variants): testes de estoque [red] (#178)\n* feat(variants): implementar ajuste [green] (#183)",
+        eventName: "push",
+        refName: "main",
+      },
+      passingReport,
+      0
+    );
+
+    expect(squashOnMain.forcedGreenOnMain).toBe(false);
+    expect(squashOnMain.mode).toBe("refactor");
+    expect(squashOnMain.allowed).toBe(true);
+  });
 });

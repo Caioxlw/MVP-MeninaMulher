@@ -35,10 +35,11 @@ export function resolveTddMode(ctx: TddContext): {
   const isTargetingMain =
     ctx.baseRef === "main" || (ctx.eventName === "push" && ctx.refName === "main");
 
-  const msg = ctx.commitMessage || "";
-  const hasRedTag = /\[red\]/i.test(msg);
-  const hasGreenTag = /\[green\]/i.test(msg);
-  const hasRefactorTag = /\[refactor\]/i.test(msg);
+  // Analisa apenas o título (primeira linha) para evitar falsos positivos com o corpo de squash merges
+  const subject = (ctx.commitMessage || "").split(/\r?\n/)[0] ?? "";
+  const hasRedTag = /\[red\]/i.test(subject);
+  const hasGreenTag = /\[green\]/i.test(subject);
+  const hasRefactorTag = /\[refactor\]/i.test(subject);
 
   if (isTargetingMain) {
     return {
