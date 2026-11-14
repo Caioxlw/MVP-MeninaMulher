@@ -641,4 +641,244 @@ describe("Unidade — Camada de Variações de Produto (Task #89 [red])", () => 
       expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ id: "var-1", stock: 8 }));
     });
   });
+
+  describe("Cálculo de Disponibilidade e Bloqueio de Carrinho (PBI #21 / Task #191 [red])", () => {
+    it("deve calcular availabilityStatus, availabilityLabel e available em listByProduct para os 3 estados (0, 1..3, >3)", async () => {
+      const { VariantService } = await loadModule<VariantServiceModule>(
+        "../../services/variant.service"
+      );
+
+      const now = new Date();
+      const mockVariants: VariantRecord[] = [
+        {
+          id: "v-0",
+          productId: "prod-1",
+          size: "P",
+          color: "Preto",
+          stock: 0,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "v-1",
+          productId: "prod-1",
+          size: "M",
+          color: "Preto",
+          stock: 1,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "v-3",
+          productId: "prod-1",
+          size: "G",
+          color: "Preto",
+          stock: 3,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "v-4",
+          productId: "prod-1",
+          size: "GG",
+          color: "Preto",
+          stock: 4,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+
+      const service = new VariantService(
+        {
+          findByProductId: vi.fn().mockResolvedValue(mockVariants),
+          findById: vi.fn(),
+          findByProductSizeColorInsensitive: vi.fn(),
+          create: vi.fn(),
+          createManyAtomic: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          hasOrderItems: vi.fn(),
+        },
+        {
+          findById: vi.fn().mockResolvedValue({ id: "prod-1" }),
+        }
+      );
+
+      const result = await service.listByProduct("prod-1");
+
+      expect(result).toHaveLength(4);
+      expect(result[0]).toMatchObject({
+        id: "v-0",
+        stock: 0,
+        availabilityStatus: "OUT_OF_STOCK",
+        availabilityLabel: "esgotado",
+        available: false,
+      });
+      expect(result[1]).toMatchObject({
+        id: "v-1",
+        stock: 1,
+        availabilityStatus: "LOW_STOCK",
+        availabilityLabel: "últimas unidades",
+        available: true,
+      });
+      expect(result[2]).toMatchObject({
+        id: "v-3",
+        stock: 3,
+        availabilityStatus: "LOW_STOCK",
+        availabilityLabel: "últimas unidades",
+        available: true,
+      });
+      expect(result[3]).toMatchObject({
+        id: "v-4",
+        stock: 4,
+        availabilityStatus: "AVAILABLE",
+        availabilityLabel: "disponível",
+        available: true,
+      });
+    });
+
+    it("deve validar adição ao carrinho em validateCartAvailability, bloqueando esgotado (409), excesso de estoque (409) e quantidade inválida (400)", async () => {
+      const { VariantService } = await loadModule<
+        VariantServiceModule & {
+          VariantService: new (...args: unknown[]) => {
+            validateCartAvailability: (
+              productId: string,
+              variantId: string,
+              quantity?: unknown
+            ) => Promise<Record<string, unknown>>;
+          };
+        }
+      >("../../services/variant.service");
+
+      const now = new Date();
+      const findByIdMock = vi.fn().mockImplementation(async (id: string) => {
+        if (id === "v-zero") {
+          return {
+            id: "v-zero",
+            productId: "prod-1",
+            size: "P",
+            color: "Preto",
+            stock: 0,
+            createdAt: now,
+            updatedAt: now,
+          };
+        }
+        if (id === "v-low") {
+          return {
+            id: "v-low",
+            productId: "prod-1",
+            size: "M",
+            color: "Preto",
+            stock: 2,
+            createdAt: now,
+            updatedAt: now,
+          };
+        }
+        return null;
+      });
+
+      const service = new VariantService(
+        {
+          findByProductId: vi.fn(),
+          findById: findByIdMock,
+          findByProductSizeColorInsensitive: vi.fn(),
+          create: vi.fn(),
+          createManyAtomic: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+          hasOrderItems: vi.fn(),
+        },
+        {
+          findById: vi.fn().mockResolvedValue({ id: "prod-1" }),
+        }
+      ) as unknown as {
+        validateCartAvailability: (
+          productId: string,
+          variantId: string,
+          quantity?: unknown
+        ) => Promise<Record<string, unknown>>;
+      };
+
+      const okResult = await service.validateCartAvailability("prod-1", "v-low", 2);
+      expect(okResult).toMatchObject({
+        id: "v-low",
+        stock: 2,
+        availabilityStatus: "LOW_STOCK",
+        availabilityLabel: "últimas unidades",
+        available: true,
+      });
+
+      await expect(service.validateCartAvailability("prod-1", "v-zero", 1)).rejects.toMatchObject({
+        statusCode: 409,
+      });
+
+      await expect(service.validateCartAvailability("prod-1", "v-low", 3)).rejects.toMatchObject({
+        statusCode: 409,
+      });
+
+      for (const invalidQty of [0, -1, 1.5, "2"]) {
+        await expect(
+          service.validateCartAvailability("prod-1", "v-low", invalidQty)
+        ).rejects.toMatchObject({ statusCode: 400 });
+      }
+
+      await expect(
+        service.validateCartAvailability("prod-1", "v-missing", 1)
+      ).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it("deve delegar validação de carrinho no VariantController.validateCart e retornar 200 OK", async () => {
+      const { VariantController } = await loadModule<
+        VariantControllerModule & {
+          VariantController: new (variantService?: unknown) => {
+            validateCart: (req: Request, res: Response) => Promise<void>;
+          };
+        }
+      >("../../controllers/variant.controller");
+
+      const mockValidateCart = vi.fn().mockResolvedValue({
+        id: "var-1",
+        productId: "prod-1",
+        stock: 5,
+        availabilityStatus: "AVAILABLE",
+        availabilityLabel: "disponível",
+        available: true,
+      });
+
+      const controller = new VariantController({
+        listByProduct: vi.fn(),
+        createVariants: vi.fn(),
+        updateVariant: vi.fn(),
+        deleteVariant: vi.fn(),
+        validateCartAvailability: mockValidateCart,
+      }) as unknown as {
+        validateCart: (req: Request, res: Response) => Promise<void>;
+      };
+
+      const statusMock = vi.fn().mockReturnThis();
+      const jsonMock = vi.fn().mockReturnThis();
+      const res = { status: statusMock, json: jsonMock } as unknown as Response;
+
+      await controller.validateCart(
+        {
+          params: { productId: "prod-1", variantId: "var-1" },
+          body: { quantity: 2 },
+        } as unknown as Request,
+        res
+      );
+
+      expect(mockValidateCart).toHaveBeenCalledWith("prod-1", "var-1", 2);
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "var-1",
+          availabilityStatus: "AVAILABLE",
+          availabilityLabel: "disponível",
+          available: true,
+        })
+      );
+    });
+  });
 });

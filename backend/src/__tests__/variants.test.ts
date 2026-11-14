@@ -398,4 +398,92 @@ describe("Integração HTTP — Variações de Produto (PBI #18 / Task #89)", ()
       ).rejects.toThrow();
     });
   });
+
+  describe("Cálculo de Disponibilidade e Bloqueio de Esgotados (PBI #21 / Task #191 [red])", () => {
+    it("Cenário 9: GET /api/products/:productId/variants deve retornar availabilityStatus, availabilityLabel e available para os 3 estados", async () => {
+      await prisma.productVariant.createMany({
+        data: [
+          { productId, size: "P", color: "Preto", stock: 0 },
+          { productId, size: "M", color: "Preto", stock: 3 },
+          { productId, size: "G", color: "Preto", stock: 4 },
+        ],
+      });
+
+      const listRes = await request(app).get(`/api/products/${productId}/variants`);
+      expect(listRes.status).toBe(200);
+      expect(listRes.body).toHaveLength(3);
+
+      const bySize = Object.fromEntries(
+        (listRes.body as Array<{ size: string }>).map((v) => [v.size, v])
+      );
+
+      expect(bySize.P).toMatchObject({
+        stock: 0,
+        availabilityStatus: "OUT_OF_STOCK",
+        availabilityLabel: "esgotado",
+        available: false,
+      });
+      expect(bySize.M).toMatchObject({
+        stock: 3,
+        availabilityStatus: "LOW_STOCK",
+        availabilityLabel: "últimas unidades",
+        available: true,
+      });
+      expect(bySize.G).toMatchObject({
+        stock: 4,
+        availabilityStatus: "AVAILABLE",
+        availabilityLabel: "disponível",
+        available: true,
+      });
+    });
+
+    it("Cenário 10: POST /api/products/:productId/variants/:variantId/validate-cart deve liberar disponíveis (200) e bloquear esgotados ou excesso (409)", async () => {
+      const outOfStock = await prisma.productVariant.create({
+        data: { productId, size: "P", color: "Nude", stock: 0 },
+      });
+      const lowStock = await prisma.productVariant.create({
+        data: { productId, size: "M", color: "Nude", stock: 2 },
+      });
+      const available = await prisma.productVariant.create({
+        data: { productId, size: "G", color: "Nude", stock: 6 },
+      });
+
+      const okRes = await request(app)
+        .post(`/api/products/${productId}/variants/${available.id}/validate-cart`)
+        .send({ quantity: 2 });
+      expect(okRes.status).toBe(200);
+      expect(okRes.body).toMatchObject({
+        id: available.id,
+        availabilityStatus: "AVAILABLE",
+        availabilityLabel: "disponível",
+        available: true,
+      });
+
+      const lowOkRes = await request(app)
+        .post(`/api/products/${productId}/variants/${lowStock.id}/validate-cart`)
+        .send({ quantity: 2 });
+      expect(lowOkRes.status).toBe(200);
+      expect(lowOkRes.body).toMatchObject({
+        id: lowStock.id,
+        availabilityStatus: "LOW_STOCK",
+        availabilityLabel: "últimas unidades",
+        available: true,
+      });
+
+      const outRes = await request(app)
+        .post(`/api/products/${productId}/variants/${outOfStock.id}/validate-cart`)
+        .send({ quantity: 1 });
+      expect(outRes.status).toBe(409);
+
+      const exceedRes = await request(app)
+        .post(`/api/products/${productId}/variants/${lowStock.id}/validate-cart`)
+        .send({ quantity: 3 });
+      expect(exceedRes.status).toBe(409);
+
+      const invalidQtyRes = await request(app)
+        .post(`/api/products/${productId}/variants/${available.id}/validate-cart`)
+        .send({ quantity: 0 });
+      expect(invalidQtyRes.status).toBe(400);
+    });
+  });
 });
