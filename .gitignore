@@ -157,3 +157,7 @@ backend/uploads/
 # SSH and private keys
 *.key
 *.pem
+
+# Graphify generated output
+graphify-out/
+
