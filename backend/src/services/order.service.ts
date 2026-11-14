@@ -121,7 +121,11 @@ function parsePositiveIntParam(
   fieldName: string,
   maxValue?: number
 ): number {
-  if (rawValue === undefined || rawValue === null || rawValue === "") {
+  if (rawValue === undefined || rawValue === null) {
+    return defaultValue;
+  }
+
+  if (typeof rawValue === "string" && rawValue.trim() === "") {
     return defaultValue;
   }
 
@@ -141,7 +145,7 @@ function parsePositiveIntParam(
 }
 
 function parseOptionalStatus(rawStatus: unknown): OrderStatus | undefined {
-  if (rawStatus === undefined || rawStatus === null || rawStatus === "") {
+  if (rawStatus === undefined || rawStatus === null) {
     return undefined;
   }
 
@@ -149,7 +153,12 @@ function parseOptionalStatus(rawStatus: unknown): OrderStatus | undefined {
     throw new OrderError("O filtro 'status' informado é inválido.", 400);
   }
 
-  const normalized = rawStatus.trim().toUpperCase() as OrderStatus;
+  const trimmed = rawStatus.trim();
+  if (trimmed === "") {
+    return undefined;
+  }
+
+  const normalized = trimmed.toUpperCase() as OrderStatus;
   if (!VALID_ORDER_STATUSES.has(normalized)) {
     throw new OrderError(
       "O filtro 'status' deve ser um dos valores: PENDING, CONFIRMED ou CANCELLED.",
