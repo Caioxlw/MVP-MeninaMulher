@@ -272,6 +272,25 @@ Sempre que o saldo em estoque (`stock`) for efetivamente alterado, a camada de s
 }
 ```
 
+### Disponibilidade por Variação e Validação de Carrinho (`PBI #21`)
+
+Todas as variações retornadas pelas rotas de produtos (`GET /api/products`, `GET /api/products/:id`, `GET /api/admin/products`, `GET /api/admin/products/:id`) e de variações (`GET /api/products/:productId/variants`, `POST`, `PATCH`) incluem o status de disponibilidade calculado dinamicamente a partir de `stock` (`RF04`, `RF05`, `RNF09`, `US03`):
+
+| Regra de Estoque  | `availabilityStatus` | `availabilityLabel`  | `available` |
+| :---------------- | :------------------- | :------------------- | :---------- |
+| `stock === 0`     | `"OUT_OF_STOCK"`     | `"esgotado"`         | `false`     |
+| `1 <= stock <= 3` | `"LOW_STOCK"`        | `"últimas unidades"` | `true`      |
+| `stock > 3`       | `"AVAILABLE"`        | `"disponível"`       | `true`      |
+
+- **Validação de Adição ao Carrinho (`RF05`)**:
+  - **Endpoint**: `POST /api/products/:productId/variants/:variantId/validate-cart` (Público)
+  - **Payload**: `{ "quantity": 1 }` (opcional, padrão `1`)
+  - **Respostas**:
+    - `200 OK`: Variação disponível para a quantidade solicitada (retorna o objeto da variação com os campos de disponibilidade).
+    - `400 Bad Request`: Quantidade inválida (`<= 0` ou não inteira).
+    - `404 Not Found`: Produto ou variação inexistente (ou não pertencente ao produto).
+    - `409 Conflict`: Variação esgotada (`stock === 0`) ou quantidade solicitada superior ao saldo disponível (`quantity > stock`).
+
 ### Upload de Mídia (`PBI #13`)
 
 - `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`)
