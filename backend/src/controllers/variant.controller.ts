@@ -71,6 +71,22 @@ export class VariantController {
     }
   };
 
+  validateCart = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const productId = extractRouteParam(req, "productId");
+      const variantId = extractRouteParam(req, "variantId");
+      const quantity = (req.body as { quantity?: unknown } | undefined)?.quantity;
+      const validated = await this.variantService.validateCartAvailability(
+        productId,
+        variantId,
+        quantity
+      );
+      res.status(200).json(validated);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
   private handleError(error: unknown, res: Response): void {
     if (error instanceof VariantError) {
       res.status(error.statusCode).json({ error: error.message });

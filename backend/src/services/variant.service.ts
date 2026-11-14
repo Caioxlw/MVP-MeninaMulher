@@ -1,4 +1,5 @@
 import type { ProductVariant } from "@prisma/client";
+import { type VariantWithAvailability, withVariantAvailability } from "../lib/availability";
 import { ProductRepository } from "../repositories/product.repository";
 import {
   type CreateVariantData,
@@ -35,18 +36,23 @@ export type CreateVariantsPayload =
     };
 
 export interface VariantServicePort {
-  listByProduct: (productId: string) => Promise<ProductVariant[]>;
+  listByProduct: (productId: string) => Promise<VariantWithAvailability<ProductVariant>[]>;
   createVariants: (
     productId: string,
     payload: CreateVariantsPayload
-  ) => Promise<ProductVariant | ProductVariant[]>;
+  ) => Promise<VariantWithAvailability<ProductVariant> | VariantWithAvailability<ProductVariant>[]>;
   updateVariant: (
     productId: string,
     variantId: string,
     input: UpdateVariantInput,
     actorId?: string
-  ) => Promise<ProductVariant>;
+  ) => Promise<VariantWithAvailability<ProductVariant>>;
   deleteVariant: (productId: string, variantId: string) => Promise<void>;
+  validateCartAvailability: (
+    productId: string,
+    variantId: string,
+    quantity?: unknown
+  ) => Promise<VariantWithAvailability<ProductVariant>>;
 }
 
 export interface VariantRepositoryPort {
@@ -234,17 +240,18 @@ export class VariantService implements VariantServicePort {
     }
   }
 
-  /** Lista as variações cadastradas para o produto informado. */
-  async listByProduct(productId: string): Promise<ProductVariant[]> {
+  /** Lista as variações cadastradas para o produto informado com status de disponibilidade calculado. */
+  async listByProduct(productId: string): Promise<VariantWithAvailability<ProductVariant>[]> {
     await this.ensureProductExists(productId);
-    return this.variantRepository.findByProductId(productId);
+    const variants = await this.variantRepository.findByProductId(productId);
+    return variants.map((variant) => withVariantAvailability(variant));
   }
 
   /** Cria uma variação individual ou um lote atômico validando unicidade case-insensitive. */
   async createVariants(
     productId: string,
     payload: CreateVariantsPayload
-  ): Promise<ProductVariant | ProductVariant[]> {
+  ): Promise<VariantWithAvailability<ProductVariant> | VariantWithAvailability<ProductVariant>[]> {
     await this.ensureProductExists(productId);
 
     if (!payload || typeof payload !== "object") {
@@ -291,7 +298,8 @@ export class VariantService implements VariantServicePort {
         await this.ensureNoColorSizeCollision(productId, item.size, item.color);
       }
 
-      return this.variantRepository.createManyAtomic(normalizedItems);
+      const created = await this.variantRepository.createManyAtomic(normalizedItems);
+      return created.map((variant) => withVariantAvailability(variant));
     }
 
     const singleInput = payload as VariantInputItem;
@@ -301,12 +309,13 @@ export class VariantService implements VariantServicePort {
 
     await this.ensureNoColorSizeCollision(productId, size, color);
 
-    return this.variantRepository.create({
+    const created = await this.variantRepository.create({
       productId,
       size,
       color,
       stock,
     });
+    return withVariantAvailability(created);
   }
 
   /**
@@ -318,7 +327,7 @@ export class VariantService implements VariantServicePort {
     variantId: string,
     input: UpdateVariantInput,
     actorId?: string
-  ): Promise<ProductVariant> {
+  ): Promise<VariantWithAvailability<ProductVariant>> {
     await this.ensureProductExists(productId);
     const updateData = this.buildUpdateData(input);
     const existing = await this.findOwnedVariantOrThrow(productId, variantId);
@@ -344,7 +353,44 @@ export class VariantService implements VariantServicePort {
       });
     }
 
-    return updated;
+    return withVariantAvailability(updated);
+  }
+
+  /**
+   * Valida se uma variação pode ser adicionada ao carrinho na quantidade solicitada (`RF05`).
+   * Bloqueia variações esgotadas (`stock === 0`) ou sem saldo suficiente (`quantity > stock`) com 409 Conflict.
+   */
+  async validateCartAvailability(
+    productId: string,
+    variantId: string,
+    rawQuantity: unknown = 1
+  ): Promise<VariantWithAvailability<ProductVariant>> {
+    const quantity = rawQuantity === undefined ? 1 : rawQuantity;
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity <= 0) {
+      throw new VariantError(
+        "A quantidade solicitada deve ser um número inteiro maior que zero.",
+        400
+      );
+    }
+
+    await this.ensureProductExists(productId);
+    const variant = await this.findOwnedVariantOrThrow(productId, variantId);
+
+    if (variant.stock === 0) {
+      throw new VariantError(
+        "Esta variação está esgotada e não pode ser adicionada ao carrinho.",
+        409
+      );
+    }
+
+    if (quantity > variant.stock) {
+      throw new VariantError(
+        `Quantidade solicitada (${quantity}) excede o estoque disponível (${variant.stock}).`,
+        409
+      );
+    }
+
+    return withVariantAvailability(variant);
   }
 
   /** Remove uma variação sem histórico de pedidos; caso possua pedidos, orienta zerar o estoque. */

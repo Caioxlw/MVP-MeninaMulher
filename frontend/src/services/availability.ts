@@ -51,7 +51,7 @@ export function resolveVariationAvailability(rawStock: number): VariationAvailab
     };
   }
 
-  if (stock <= 2) {
+  if (stock <= 3) {
     return {
       status: "low_stock",
       label: "Últimas unidades",
