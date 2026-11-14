@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { withProductVariantsAvailability } from "../lib/availability";
 import { ProductRepository, PublicProductFilters } from "../repositories/product.repository";
 import { ProductError, ProductService } from "../services/product.service";
 
@@ -49,7 +50,7 @@ export class ProductController {
       }
 
       const products = await this.productRepository.findPublicActive(filters);
-      res.status(200).json(products);
+      res.status(200).json(products.map((product) => withProductVariantsAvailability(product)));
     } catch (error: unknown) {
       handleControllerError(error, res, "Erro ao listar produtos do catálogo.");
     }
@@ -65,7 +66,7 @@ export class ProductController {
         return;
       }
 
-      res.status(200).json(product);
+      res.status(200).json(withProductVariantsAvailability(product));
     } catch (error: unknown) {
       handleControllerError(error, res, "Erro ao consultar detalhe do produto.");
     }
@@ -74,7 +75,7 @@ export class ProductController {
   listAdmin = async (_req: Request, res: Response): Promise<void> => {
     try {
       const products = await this.productRepository.findAllAdmin();
-      res.status(200).json(products);
+      res.status(200).json(products.map((product) => withProductVariantsAvailability(product)));
     } catch (error: unknown) {
       handleControllerError(error, res, "Erro ao listar produtos no painel administrativo.");
     }
@@ -90,7 +91,7 @@ export class ProductController {
         return;
       }
 
-      res.status(200).json(product);
+      res.status(200).json(withProductVariantsAvailability(product));
     } catch (error: unknown) {
       handleControllerError(error, res, "Erro ao consultar produto no painel administrativo.");
     }
@@ -99,7 +100,7 @@ export class ProductController {
   create = async (req: Request, res: Response): Promise<void> => {
     try {
       const created = await this.productService.createProduct(req.body ?? {});
-      res.status(201).json(created);
+      res.status(201).json(withProductVariantsAvailability(created));
     } catch (error: unknown) {
       handleControllerError(error, res, "Erro ao cadastrar produto.");
     }
@@ -109,7 +110,7 @@ export class ProductController {
     try {
       const id = String(req.params?.id ?? "");
       const updated = await this.productService.updateProduct(id, req.body ?? {});
-      res.status(200).json(updated);
+      res.status(200).json(withProductVariantsAvailability(updated));
     } catch (error: unknown) {
       handleControllerError(error, res, "Erro ao atualizar produto.");
     }
