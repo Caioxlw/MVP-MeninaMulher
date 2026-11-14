@@ -1,28 +1,30 @@
 ---
 name: tdd
 description: >-
-  Orquestra o ciclo completo de TDD do projeto MVP Menina Mulher
-  (Red [red] -> Green [green] -> Refactor -> Code Review com Gemini 4 Argon Medium
-  -> Correções/Testes -> Notificação ao usuário). Use sempre que o usuário pedir
-  para desenvolver uma tarefa/issue em TDD ou executar o fluxo Red-Green-Refactor-Review.
+  Orquestra o ciclo de TDD do projeto MVP Menina Mulher (Red [red] -> Green
+  [green] -> Refactor -> Review com Gemini 4 Argon Medium) em modo Rápido ou
+  Completo. Ative SOMENTE quando o usuário pedir explicitamente `/tdd`,
+  "em TDD" ou "fluxo TDD" — não ative em tarefas comuns que apenas mencionem
+  testes.
 ---
 
 # Fluxo TDD com Review Automatizada (`tdd`)
 
-Esta skill padroniza o ciclo **Red $\rightarrow$ Green $\rightarrow$ Refactor $\rightarrow$ Review** no repositório **MVP Menina Mulher**, integrando as tags de CI do [`CONTRIBUTING.md`](file:///CONTRIBUTING.md) com uma revisão de código automatizada usando o modelo **Gemini 4 Argon (Medium)** (`gemini-4-argon-medium`) antes do commit final de `[refactor]`.
+Esta skill padroniza o ciclo **Red $\rightarrow$ Green $\rightarrow$ Refactor $\rightarrow$ Review** no repositório **MVP Menina Mulher**, integrando as tags de CI do [`CONTRIBUTING.md`](file:///CONTRIBUTING.md) com dois modos de execução para não engessar tarefas simples.
 
 ---
 
-## Visão Geral do Ciclo
+## Escolha do Modo (Antes de Começar)
 
-```text
-1. RED      -> Escrever testes que falham -> Rodar suíte (confirmar falha) -> Commit [red]
-2. GREEN    -> Implementar o mínimo para passar -> Rodar suíte (100% verde) -> Commit [green]
-3. REFACTOR -> Melhorar código sem mudar comportamento -> Rodar suíte (100% verde)
-4. REVIEW   -> Spawnar worker `tdd-reviewer` via `swarm` com `gemini-4-argon-medium`
-5. FIX      -> Corrigir problemas críticos/bugs óbvios apontados -> Re-rodar suíte (100% verde)
-6. NOTIFY   -> Apresentar resumo consolidado ao usuário (pronto para commit/push [refactor])
-```
+Avalie o escopo da tarefa (ou siga se o usuário especificar `"rápido"` ou `"completo"`):
+
+| Critério | **Modo Rápido** | **Modo Completo** |
+| :--- | :--- | :--- |
+| **Quando usar** | Ajustes pontuais, 1–2 arquivos ou lógica simples | Features completas, regras de negócio críticas, banco/API, segurança ou 3+ arquivos |
+| **Commits no CI** | Pode consolidar em um único commit `[green]` ou `[refactor]` ao final | Commits separados por etapa (`[red]`, `[green]`, `[refactor]`) |
+| **Review final** | **Self-review rápido** na própria sessão (sem `swarm`) | **Worker `tdd-reviewer`** via `swarm` usando `gemini-4-argon-medium` |
+
+> Se houver dúvida sobre o porte da tarefa, comece no **Modo Rápido** e só escale para o `tdd-reviewer` se a mudança crescer ou tocar pontos críticos.
 
 ---
 
@@ -30,7 +32,7 @@ Esta skill padroniza o ciclo **Red $\rightarrow$ Green $\rightarrow$ Refactor $\
 
 1. Escreva os testes automatizados cobrindo os critérios de aceitação e casos de borda da tarefa.
 2. Execute a suíte de testes para confirmar que os novos testes **falham** pelo motivo esperado (não por erro de sintaxe ou infraestrutura).
-3. Quando for commitar esta etapa, utilize Conventional Commits em português com a tag `[red]`:
+3. *(Modo Completo)* Quando commitar esta etapa, utilize Conventional Commits em português com a tag `[red]`:
    ```bash
    git commit -m "test(<escopo>): <descricao dos testes> [red] (closes #<issue>)"
    ```
@@ -42,7 +44,7 @@ Esta skill padroniza o ciclo **Red $\rightarrow$ Green $\rightarrow$ Refactor $\
 
 1. Implemente o código mínimo e limpo necessário para fazer todos os testes passarem.
 2. Execute a suíte de testes e garanta **100% de aprovação**.
-3. Quando for commitar esta etapa, utilize a tag `[green]`:
+3. *(Modo Completo)* Quando commitar esta etapa, utilize a tag `[green]`:
    ```bash
    git commit -m "feat(<escopo>): <descricao da implementacao> [green] (closes #<issue>)"
    ```
@@ -53,11 +55,12 @@ Esta skill padroniza o ciclo **Red $\rightarrow$ Green $\rightarrow$ Refactor $\
 
 1. Refatore o código produzido (eliminando duplicações, melhorando nomes, extraindo helpers, mantendo funções coesas e rasas) sem alterar o comportamento externo.
 2. Execute novamente a suíte de testes e confirme **100% dos testes passando** (e lint/typecheck, se aplicável no projeto).
-3. **NÃO faça o commit/push de `[refactor]` ainda** — avance primeiro para a etapa de Review.
+3. **No Modo Rápido:** faça um self-review rápido do diff, atualize `graphify update .` (se `graphify-out/` existir) e vá direto para a **Etapa 6 (Notificação)**.
+4. **No Modo Completo:** não faça o commit/push de `[refactor]` ainda — siga para a **Etapa 4 (Review)**.
 
 ---
 
-## 4. Etapa REVIEW com Gemini 4 Argon (Medium)
+## 4. Etapa REVIEW com Gemini 4 Argon (Medium) *(Modo Completo)*
 
 Com o código refatorado e os testes 100% verdes, delegue a revisão de código para um worker dedicado no modelo `gemini-4-argon-medium` usando a ferramenta `swarm`:
 
@@ -65,7 +68,7 @@ Com o código refatorado e os testes 100% verdes, delegue a revisão de código 
    - `action`: `"add"`
    - `name`: `"tdd-reviewer"`
    - `model`: `"gemini-4-argon-medium"`
-   - `workspace`: `"inherit"` (leitor/revisor não edita arquivos, compartilha o workspace atual)
+   - `workspace`: `"inherit"`
    - `brief`: Instrua o revisor a atuar em **modo somente leitura** e revisar **todo o diff da tarefa/branch** (`git diff` das alterações não commitadas + commits da tarefa em relação à branch base), verificando obrigatoriamente:
      1. **Bugs e lógica:** casos de borda, condições de corrida, tratamento de erros e estados inválidos.
      2. **Segurança:** validação de entrada, exposição de dados sensíveis, permissões e injeções.
@@ -73,12 +76,12 @@ Com o código refatorado e os testes 100% verdes, delegue a revisão de código 
      4. **Duplicação e qualidade de código:** código duplicado, funções longas, acoplamento desnecessário e legibilidade.
      5. **Saída esperada:** lista objetiva separada em **Críticos / Bugs óbvios** (bloqueantes) e **Sugestões / Melhorias menores**, citando arquivo e linha.
 
-2. Aguarde a resposta do `tdd-reviewer` no board (pare de chamar ferramentas se necessário; o sistema acordará você quando o worker responder).
+2. Aguarde a resposta do `tdd-reviewer` no board.
 3. Após receber o relatório do `tdd-reviewer`, encerre o worker com `swarm(action="kill", name="tdd-reviewer")`.
 
 ---
 
-## 5. Correções Automáticas e Revalidação
+## 5. Correções Automáticas e Revalidação *(Modo Completo)*
 
 1. Analise os apontamentos do `tdd-reviewer`:
    - **Se houver problemas críticos ou bugs óbvios:** corrija-os automaticamente no código/testes.
@@ -92,10 +95,10 @@ Com o código refatorado e os testes 100% verdes, delegue a revisão de código 
 ## 6. Notificação Final ao Usuário
 
 Ao concluir (com 100% dos testes verdes após eventuais correções), **avise o usuário** apresentando um resumo claro e objetivo contendo:
+- **Modo executado:** Rápido ou Completo (`Gemini 4 Argon (Medium)`).
 - **Status dos testes:** resultado da última execução completa após todas as edições.
-- **Resultado da Review (`Gemini 4 Argon (Medium)`):** principais pontos encontrados (ou confirmação de aprovação sem ressalvas).
-- **Correções aplicadas:** o que foi ajustado automaticamente (se aplicável).
-- **Próximo passo:** informar que as alterações estão prontas para o commit/push final com a tag `[refactor]`:
+- **Resultado da Review e correções:** pontos encontrados e ajustes aplicados (se aplicável).
+- **Próximo passo:** informar que as alterações estão prontas para o commit/push final com a tag `[refactor]` (ou `[green]`/`[refactor]` no modo rápido):
   ```bash
   git commit -m "refactor(<escopo>): <descricao> [refactor] (closes #<issue>)"
   ```
