@@ -32,6 +32,14 @@ describe("Etiquetas de Disponibilidade e Bloqueio de Variações Esgotadas (PBI 
       stock: 5,
     });
 
+    expect(resolveVariationAvailability(3)).toEqual({
+      status: "low_stock",
+      label: "Últimas unidades",
+      badgeVariant: "lowStock",
+      available: true,
+      stock: 3,
+    });
+
     expect(resolveVariationAvailability(2)).toEqual({
       status: "low_stock",
       label: "Últimas unidades",
