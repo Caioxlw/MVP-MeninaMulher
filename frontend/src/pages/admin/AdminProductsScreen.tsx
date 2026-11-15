@@ -60,12 +60,6 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
   const [isMutatingId, setIsMutatingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (locationState?.flashMessage) {
-      setFeedbackMessage(locationState.flashMessage);
-    }
-  }, [locationState?.flashMessage]);
-
-  useEffect(() => {
     let active = true;
 
     getAdminProducts()
@@ -399,6 +393,7 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
             {filteredProducts.map((item) => {
               const totalStock = getTotalStock(item);
               const isBusy = isMutatingId === item.id;
+              const primaryImage = item.images[0] ?? null;
 
               return (
                 <article
@@ -407,8 +402,16 @@ export function AdminProductsScreen({ descriptor }: { descriptor: RouteDescripto
                   className="py-4 flex flex-col md:grid md:grid-cols-12 gap-4 items-start md:items-center"
                 >
                   <div className="md:col-span-4 flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-xl bg-brand-soft border border-brand-border flex items-center justify-center font-editorial font-bold text-brand-plum shrink-0">
-                      MM
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-brand-soft border border-brand-border flex items-center justify-center font-editorial font-bold text-brand-plum shrink-0">
+                      {primaryImage ? (
+                        <img
+                          src={primaryImage.url}
+                          alt={primaryImage.altText ?? item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        "MM"
+                      )}
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
