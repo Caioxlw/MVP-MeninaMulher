@@ -22,7 +22,7 @@ Avalie o escopo da tarefa (ou siga se o usuário especificar `"rápido"` ou `"co
 | :--- | :--- | :--- |
 | **Quando usar** | Ajustes pontuais, 1–2 arquivos ou lógica simples | Features completas, regras de negócio críticas, banco/API, segurança ou 3+ arquivos |
 | **Commits no CI** | Pode consolidar em um único commit `[green]` ou `[refactor]` ao final | Commits separados por etapa (`[red]`, `[green]`, `[refactor]`) |
-| **Review final** | **Self-review rápido** na própria sessão (sem `swarm`) | **Worker `tdd-reviewer`** via `swarm` usando `gemini-4-argon-medium` |
+| **Review final** | **Self-review via `/ponytail-review`** na própria sessão (sem `swarm`) | **Worker `tdd-reviewer`** via `swarm` usando `gemini-4-argon-medium` + `/ponytail-review` |
 
 > Se houver dúvida sobre o porte da tarefa, comece no **Modo Rápido** e só escale para o `tdd-reviewer` se a mudança crescer ou tocar pontos críticos.
 
@@ -42,7 +42,7 @@ Avalie o escopo da tarefa (ou siga se o usuário especificar `"rápido"` ou `"co
 
 ## 2. Etapa GREEN (`[green]`)
 
-1. Implemente o código mínimo e limpo necessário para fazer todos os testes passarem.
+1. Ative/aplique as diretrizes da skill `ponytail` (`/ponytail`): implemente a menor mudança completa necessária para fazer todos os testes passarem, reutilizando helpers/serviços já existentes no repositório e recursos nativos/stdlib, sem criar abstrações, wrappers ou opções especulativas.
 2. Execute a suíte de testes e garanta **100% de aprovação**.
 3. *(Modo Completo)* Quando commitar esta etapa, utilize a tag `[green]`:
    ```bash
@@ -53,9 +53,9 @@ Avalie o escopo da tarefa (ou siga se o usuário especificar `"rápido"` ou `"co
 
 ## 3. Etapa REFACTOR (Pré-commit `[refactor]`)
 
-1. Refatore o código produzido (eliminando duplicações, melhorando nomes, extraindo helpers, mantendo funções coesas e rasas) sem alterar o comportamento externo.
+1. Refatore seguindo `ponytail` (`/ponytail`): elimine duplicações reais, melhore nomes e mantenha fluxo raso sem alterar o comportamento externo — **não** crie camadas, wrappers ou helpers que existam apenas para encurtar uma função.
 2. Execute novamente a suíte de testes e confirme **100% dos testes passando** (e lint/typecheck, se aplicável no projeto).
-3. **No Modo Rápido:** faça um self-review rápido do diff, atualize `graphify update .` (se `graphify-out/` existir) e vá direto para a **Etapa 6 (Notificação)**.
+3. **No Modo Rápido:** execute um self-review do diff seguindo a skill `ponytail-review` (`/ponytail-review`), atualize `graphify update .` (se `graphify-out/` existir) e vá direto para a **Etapa 6 (Notificação)**.
 4. **No Modo Completo:** não faça o commit/push de `[refactor]` ainda — siga para a **Etapa 4 (Review)**.
 
 ---
@@ -69,12 +69,13 @@ Com o código refatorado e os testes 100% verdes, delegue a revisão de código 
    - `name`: `"tdd-reviewer"`
    - `model`: `"gemini-4-argon-medium"`
    - `workspace`: `"inherit"`
-   - `brief`: Instrua o revisor a atuar em **modo somente leitura** e revisar **todo o diff da tarefa/branch** (`git diff` das alterações não commitadas + commits da tarefa em relação à branch base), verificando obrigatoriamente:
-     1. **Bugs e lógica:** casos de borda, condições de corrida, tratamento de erros e estados inválidos.
-     2. **Segurança:** validação de entrada, exposição de dados sensíveis, permissões e injeções.
-     3. **Aderência aos testes e requisitos:** se os testes realmente validam o comportamento esperado (sem falsos positivos ou asserts frouxos).
-     4. **Duplicação e qualidade de código:** código duplicado, funções longas, acoplamento desnecessário e legibilidade.
-     5. **Saída esperada:** lista objetiva separada em **Críticos / Bugs óbvios** (bloqueantes) e **Sugestões / Melhorias menores**, citando arquivo e linha.
+   - `brief`: Instrua o revisor a atuar em **modo somente leitura**, ler e aplicar a skill `ponytail-review` (`/ponytail-review`) sobre **todo o diff da tarefa/branch** (`git diff` das alterações não commitadas + commits da tarefa em relação à branch base), verificando obrigatoriamente:
+     1. **Bugs e lógica:** caso concreto de falha, casos de borda, condições de corrida, tratamento de erros, estados inválidos e `grep` em todos os callers afetados.
+     2. **Segurança e risco:** validação de entrada, exposição de dados sensíveis, permissões, injeções e risco de perda de dados.
+     3. **Escala e performance:** gargalos sob carga esperada (queries N+1, `O(n²)`, estado em memória sem compartilhamento).
+     4. **Aderência aos testes e requisitos:** se a lógica crítica/de risco tem testes que falham quando ela quebra (sem falsos positivos ou asserts frouxos).
+     5. **Lean (`ponytail`):** código morto, duplicações, abstrações YAGNI ou helpers desnecessários, indicando potencial de redução (`Lean: -<N> lines possible`).
+     6. **Saída esperada:** formato da `ponytail-review` agrupado em **Must fix** (bloqueantes), **Should fix** e **Nice to have**, numerados e citando arquivo e linha.
 
 2. Aguarde a resposta do `tdd-reviewer` no board.
 3. Após receber o relatório do `tdd-reviewer`, encerre o worker com `swarm(action="kill", name="tdd-reviewer")`.
