@@ -1,10 +1,10 @@
-import express, { Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import express, { Request, Response } from "express";
 import rateLimit from "express-rate-limit";
-import { prisma } from "./lib/prisma";
 import path from "path";
-import { upload } from "./lib/upload";
+import { prisma } from "./lib/prisma";
+import { handleUploadSingleImage } from "./lib/upload";
 import { requireAdminAuth } from "./middlewares/auth.middleware";
 import { authRoutes } from "./routes/auth.routes";
 import { categoryRoutes } from "./routes/category.routes";
@@ -89,12 +89,12 @@ app.get("/api/health", async (_req: Request, res: Response) => {
   });
 });
 
-// Endpoint da Task #13: Prova de Conceito de Armazenamento de Fotos (protegido por ADMIN - RF11)
+// Endpoint de Armazenamento de Fotos (protegido por ADMIN - RF11, PBI #13 e #17 com limite de 10 MB)
 app.post(
   "/api/upload",
   apiLimiter,
   requireAdminAuth,
-  upload.single("image"),
+  handleUploadSingleImage,
   (req: Request, res: Response): void => {
     if (!req.file) {
       res.status(400).json({ success: false, message: "Nenhum arquivo enviado." });
@@ -112,7 +112,7 @@ app.post(
         fileName: req.file.filename,
         size: req.file.size,
         mimetype: req.file.mimetype,
-        url: fileUrl, // <--- Link público que será usado no produto
+        url: fileUrl,
       },
     });
   }

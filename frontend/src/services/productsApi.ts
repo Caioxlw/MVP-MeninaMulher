@@ -1,9 +1,9 @@
 import { clearAdminSession, getAdminSession } from "./authApi";
 
 /**
- * Cliente HTTP de produtos e categorias do painel (Task #149 / PBI #92).
+ * Cliente HTTP de produtos, categorias e galeria de fotos do painel (PBI #92 e PBI #17).
  *
- * Consome a API REST da PBI #16. Quando a API está offline, o catálogo de
+ * Consome a API REST das PBIs #16 e #17. Quando a API está offline, o catálogo de
  * demonstração só é usado em desenvolvimento local (`import.meta.env.DEV`):
  * leituras retornam `demo: true` e mutações HTTP diretas lançam `DEMO_READ_ONLY`,
  * permitindo que a camada de interface aplique fallback explícito em memória
@@ -63,6 +63,19 @@ export interface CreateProductDto {
 
 export type UpdateProductDto = Partial<CreateProductDto>;
 
+export interface AddProductImageDto {
+  url: string;
+  altText?: string | null;
+  position?: number;
+  isPrimary?: boolean;
+}
+
+export interface UpdateProductImageDto {
+  altText?: string | null;
+  position?: number;
+  isPrimary?: boolean;
+}
+
 export interface ApiResult<T> {
   data: T;
   /** `true` quando os dados vieram do catálogo de demonstração (API offline em dev). */
@@ -89,6 +102,9 @@ export class ProductsApiError extends Error {
     this.status = status;
   }
 }
+
+export const MAX_IMAGE_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB (PBI #17)
+export const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/pjpeg", "image/png", "image/webp"];
 
 const SESSION_EXPIRED_MESSAGE = "Sua sessão expirou. Entre novamente.";
 const OFFLINE_MESSAGE =
@@ -234,6 +250,123 @@ export function applyDemoDeleteProduct(id: string): void {
   demoProductsStore = demoProductsStore.filter((item) => item.id !== id);
 }
 
+export function applyDemoAddProductImage(
+  productId: string,
+  dto: AddProductImageDto
+): ProductImageSummary {
+  const existing = demoProductsStore.find((item) => item.id === productId);
+  if (!existing) {
+    throw new ProductsApiError("NOT_FOUND", "Produto não encontrado.", 404);
+  }
+
+  const trimmedUrl = dto.url.trim();
+  if (!trimmedUrl) {
+    throw new ProductsApiError("VALIDATION", "A URL ou arquivo da foto é obrigatório.", 400);
+  }
+
+  const altText = dto.altText?.trim() ? dto.altText.trim() : existing.name;
+  const wantsPrimary = dto.isPrimary === true || dto.position === 0;
+
+  const newImage: ProductImageSummary = {
+    id: `demo-img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    url: trimmedUrl,
+    altText,
+    position: wantsPrimary ? 0 : existing.images.length,
+  };
+
+  const nextImages = wantsPrimary
+    ? [newImage, ...existing.images].map((img, idx) => ({ ...img, position: idx }))
+    : [...existing.images, newImage].map((img, idx) => ({ ...img, position: idx }));
+
+  demoProductsStore = demoProductsStore.map((item) =>
+    item.id === productId ? { ...item, images: nextImages } : item
+  );
+
+  return nextImages.find((img) => img.id === newImage.id) ?? newImage;
+}
+
+export function applyDemoUpdateProductImage(
+  productId: string,
+  imageId: string,
+  dto: UpdateProductImageDto
+): ProductImageSummary {
+  const existing = demoProductsStore.find((item) => item.id === productId);
+  if (!existing) {
+    throw new ProductsApiError("NOT_FOUND", "Produto não encontrado.", 404);
+  }
+
+  const target = existing.images.find((img) => img.id === imageId);
+  if (!target) {
+    throw new ProductsApiError("NOT_FOUND", "Foto não encontrada para este produto.", 404);
+  }
+
+  const nextAltText =
+    dto.altText !== undefined
+      ? dto.altText?.trim()
+        ? dto.altText.trim()
+        : existing.name
+      : target.altText;
+
+  const wantsPrimary = dto.isPrimary === true || dto.position === 0;
+  let nextImages: ProductImageSummary[];
+
+  if (wantsPrimary || dto.position !== undefined) {
+    const desiredIndex = wantsPrimary ? 0 : Math.max(0, dto.position ?? 0);
+    const others = existing.images.filter((img) => img.id !== imageId);
+    const clampedIndex = Math.min(desiredIndex, others.length);
+    const copy = [...others];
+    copy.splice(clampedIndex, 0, { ...target, altText: nextAltText });
+    nextImages = copy.map((img, idx) => ({ ...img, position: idx }));
+  } else {
+    nextImages = existing.images.map((img) =>
+      img.id === imageId ? { ...img, altText: nextAltText } : img
+    );
+  }
+
+  demoProductsStore = demoProductsStore.map((item) =>
+    item.id === productId ? { ...item, images: nextImages } : item
+  );
+
+  return nextImages.find((img) => img.id === imageId)!;
+}
+
+export function applyDemoDeleteProductImage(productId: string, imageId: string): void {
+  const existing = demoProductsStore.find((item) => item.id === productId);
+  if (!existing) {
+    throw new ProductsApiError("NOT_FOUND", "Produto não encontrado.", 404);
+  }
+
+  const hasImage = existing.images.some((img) => img.id === imageId);
+  if (!hasImage) {
+    throw new ProductsApiError("NOT_FOUND", "Foto não encontrada para este produto.", 404);
+  }
+
+  const nextImages = existing.images
+    .filter((img) => img.id !== imageId)
+    .map((img, idx) => ({ ...img, position: idx }));
+
+  demoProductsStore = demoProductsStore.map((item) =>
+    item.id === productId ? { ...item, images: nextImages } : item
+  );
+}
+
+export function validateProductImageFile(file: Pick<File, "type" | "size" | "name">): void {
+  if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) {
+    throw new ProductsApiError(
+      "VALIDATION",
+      "Formato de arquivo inválido. Apenas JPG, PNG e WEBP são permitidos.",
+      400
+    );
+  }
+  if (file.size > MAX_IMAGE_FILE_SIZE_BYTES) {
+    throw new ProductsApiError(
+      "VALIDATION",
+      "O arquivo excede o tamanho máximo permitido de 10 MB.",
+      400
+    );
+  }
+}
+
 function isDemoFallbackEnabled(): boolean {
   return import.meta.env.DEV === true;
 }
@@ -251,30 +384,23 @@ function buildHeaders(withBody: boolean): Record<string, string> {
 }
 
 async function readErrorMessage(response: Response): Promise<string | null> {
-  const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
-  return body && typeof body.error === "string" && body.error.trim() ? body.error : null;
+  const body = (await response.json().catch(() => null)) as {
+    error?: unknown;
+    message?: unknown;
+  } | null;
+  if (body && typeof body.error === "string" && body.error.trim()) {
+    return body.error;
+  }
+  if (body && typeof body.message === "string" && body.message.trim()) {
+    return body.message;
+  }
+  return null;
 }
 
 /** Erro de conexão: `fetch` rejeitou ou o proxy respondeu 5xx sem a mensagem JSON da API. */
 class OfflineSignal extends Error {}
 
-async function request<T>(
-  path: string,
-  init: { method?: string; body?: unknown } = {}
-): Promise<T> {
-  const hasBody = init.body !== undefined;
-  let response: Response;
-
-  try {
-    response = await fetch(path, {
-      method: init.method ?? "GET",
-      headers: buildHeaders(hasBody),
-      ...(hasBody ? { body: JSON.stringify(init.body) } : {}),
-    });
-  } catch {
-    throw new OfflineSignal();
-  }
-
+async function handleHttpResponse<T>(response: Response): Promise<T> {
   if (response.ok) {
     return (await response.json().catch(() => undefined)) as T;
   }
@@ -300,6 +426,26 @@ async function request<T>(
           : "UNKNOWN";
 
   throw new ProductsApiError(code, apiMessage ?? fallbackMessage, response.status);
+}
+
+async function request<T>(
+  path: string,
+  init: { method?: string; body?: unknown } = {}
+): Promise<T> {
+  const hasBody = init.body !== undefined;
+  let response: Response;
+
+  try {
+    response = await fetch(path, {
+      method: init.method ?? "GET",
+      headers: buildHeaders(hasBody),
+      ...(hasBody ? { body: JSON.stringify(init.body) } : {}),
+    });
+  } catch {
+    throw new OfflineSignal();
+  }
+
+  return handleHttpResponse<T>(response);
 }
 
 async function read<T>(path: string, demoData: () => T): Promise<ApiResult<T>> {
@@ -338,7 +484,7 @@ function normalizeProduct(raw: ApiProduct): Product {
     price: Number(raw.price),
     categoryId: raw.categoryId ?? null,
     category: raw.category ?? null,
-    images: raw.images ?? [],
+    images: [...(raw.images ?? [])].sort((a, b) => a.position - b.position),
     variants: raw.variants ?? [],
   };
 }
@@ -358,6 +504,10 @@ function normalizeDto(dto: UpdateProductDto): UpdateProductDto {
 }
 
 const productPath = (id: string) => `/api/products/${encodeURIComponent(id)}`;
+const productImagesPath = (productId: string) =>
+  `/api/products/${encodeURIComponent(productId)}/images`;
+const productImageItemPath = (productId: string, imageId: string) =>
+  `/api/products/${encodeURIComponent(productId)}/images/${encodeURIComponent(imageId)}`;
 
 export async function getAdminProducts(): Promise<ApiResult<Product[]>> {
   const result = await read<ApiProduct[]>("/api/admin/products", () => demoProductsStore);
@@ -396,6 +546,75 @@ export async function toggleProductActive(id: string, active: boolean): Promise<
 
 export async function deleteProduct(id: string): Promise<void> {
   await mutate<unknown>(productPath(id), "DELETE");
+}
+
+export async function uploadProductImageFile(
+  productId: string,
+  file: File,
+  options: { altText?: string | null; isPrimary?: boolean } = {}
+): Promise<ProductImageSummary> {
+  validateProductImageFile(file);
+
+  const formData = new FormData();
+  formData.append("image", file);
+  if (options.altText && options.altText.trim()) {
+    formData.append("altText", options.altText.trim());
+  }
+  if (options.isPrimary) {
+    formData.append("isPrimary", "true");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(productImagesPath(productId), {
+      method: "POST",
+      headers: buildHeaders(false),
+      body: formData,
+    });
+  } catch {
+    throw isDemoFallbackEnabled()
+      ? new ProductsApiError("DEMO_READ_ONLY", DEMO_READ_ONLY_MESSAGE)
+      : new ProductsApiError("OFFLINE", OFFLINE_MESSAGE);
+  }
+
+  try {
+    return await handleHttpResponse<ProductImageSummary>(response);
+  } catch (error) {
+    if (error instanceof OfflineSignal) {
+      throw isDemoFallbackEnabled()
+        ? new ProductsApiError("DEMO_READ_ONLY", DEMO_READ_ONLY_MESSAGE)
+        : new ProductsApiError("OFFLINE", OFFLINE_MESSAGE);
+    }
+    throw error;
+  }
+}
+
+export async function addProductImageByUrl(
+  productId: string,
+  dto: AddProductImageDto
+): Promise<ProductImageSummary> {
+  const trimmedUrl = dto.url.trim();
+  if (!trimmedUrl) {
+    throw new ProductsApiError("VALIDATION", "Informe uma URL válida para a foto.", 400);
+  }
+  return mutate<ProductImageSummary>(productImagesPath(productId), "POST", {
+    url: trimmedUrl,
+    ...(dto.altText !== undefined ? { altText: dto.altText } : {}),
+    ...(dto.position !== undefined ? { position: dto.position } : {}),
+    ...(dto.isPrimary !== undefined ? { isPrimary: dto.isPrimary } : {}),
+  });
+}
+
+export async function updateProductImage(
+  productId: string,
+  imageId: string,
+  dto: UpdateProductImageDto
+): Promise<ProductImageSummary> {
+  return mutate<ProductImageSummary>(productImageItemPath(productId, imageId), "PATCH", dto);
+}
+
+export async function deleteProductImage(productId: string, imageId: string): Promise<void> {
+  await mutate<unknown>(productImageItemPath(productId, imageId), "DELETE");
 }
 
 /**
