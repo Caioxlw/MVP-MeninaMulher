@@ -316,9 +316,13 @@ Sempre que um pedido tem seu status alterado via confirmação ou cancelamento, 
 }
 ```
 
-### Upload de Mídia (`PBI #13`)
+### Upload e Galeria de Fotos de Produtos (`PBI #13` e `PBI #17`)
 
-- `POST /api/upload` - Envio de imagem de produto (JPG, PNG, WEBP até 5MB), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`)
+- `POST /api/upload` - Envio avulso de arquivo de imagem (`JPG`, `PNG`, `WEBP` até **10 MB**), protegido pelo middleware `requireAdminAuth` (`Authorization: Bearer <token>`) (`ADMIN` — `RF11`, `RF12`).
+- `GET /api/products/:productId/images` - Lista a galeria de fotos (`id`, `url`, `altText`, `position`) de um produto ordenada por `position ASC` (Público — `RF02`, `RF04`, `US01`).
+- `POST /api/products/:productId/images` - Vincula uma nova foto ao produto por upload de arquivo multipart (`image`, `JPG/PNG/WEBP` até **10 MB**) ou por link JSON (`{ url, altText?, position?, isPrimary? }`), preenchendo automaticamente `altText` com o nome da peça caso não seja informado (`ADMIN` — `RF11`, `RF12`, `RNF02`, `RNF07`, `US09`).
+- `PATCH /api/products/:productId/images/:imageId` - Atualiza `altText` e/ou `position` (permitindo definir uma foto como **Foto Principal / Capa** em `position: 0` e reordenar as demais) (`ADMIN` — `RF11`, `RF12`, `RNF07`, `US11`).
+- `DELETE /api/products/:productId/images/:imageId` - Remove uma foto da galeria do produto e renormaliza as posições restantes (`0, 1, 2...`), mantendo sempre uma foto principal quando houver imagens (`ADMIN` — `RF11`, `RF12`, `US11`).
 
 ---
 
