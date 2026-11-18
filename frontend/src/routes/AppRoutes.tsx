@@ -21,6 +21,7 @@ import {
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { StoreLayout } from "../components/layout/StoreLayout";
+import { StoreProvider } from "../contexts/StoreContext";
 import {
   Alert,
   Badge,
@@ -1919,8 +1920,14 @@ export function AppRoutes() {
 
   return (
     <Routes>
-      {/* Rotas Públicas da Loja com StoreLayout */}
-      <Route element={<StoreLayout />}>
+      {/* Rotas Públicas da Loja com StoreLayout e StoreProvider */}
+      <Route
+        element={
+          <StoreProvider>
+            <StoreLayout />
+          </StoreProvider>
+        }
+      >
         {STORE_ROUTE_DESCRIPTORS.map((descriptor) => (
           <Route
             key={descriptor.path}
