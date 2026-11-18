@@ -95,6 +95,10 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
     expect(screen.getByText("Subtotal (3 peças)")).toBeInTheDocument();
     expect(screen.getAllByText(/199,70/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/79,80/).length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.error(img);
+    expect(screen.queryByRole("img", { name: "Sutiã Renda Floral Preto" })).not.toBeInTheDocument();
+    expect(screen.getByText("Partes de Cima")).toBeInTheDocument();
   });
 
   it("atualiza quantidades via botões acessíveis (+ e -) e remove item ao zerar ou clicar na lixeira", () => {
