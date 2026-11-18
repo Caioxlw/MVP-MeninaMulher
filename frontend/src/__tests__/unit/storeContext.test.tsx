@@ -237,7 +237,9 @@ describe("StoreContext (Cart & Favorites)", () => {
   it("deve sincronizar estado reativamente quando ocorrer evento storage em outra aba", () => {
     const { result } = renderHook(() => useCombinedStore(), { wrapper: createWrapper() });
 
-    const externalCart = [{ ...SAMPLE_PANTY, id: "calcinha-algodao-doce-var-panty-rosa-m", quantity: 3 }];
+    const externalCart = [
+      { ...SAMPLE_PANTY, id: "calcinha-algodao-doce-var-panty-rosa-m", quantity: 3 },
+    ];
     const externalFavorites = [FAVORITE_WITHOUT_VARIANT];
 
     act(() => {

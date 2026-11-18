@@ -40,7 +40,11 @@ function normalizeQuantity(quantity: number): number {
   return Math.floor(quantity);
 }
 
-function mergeCartItem(currentItems: CartItem[], input: AddToCartInput, quantity: number): CartItem[] {
+function mergeCartItem(
+  currentItems: CartItem[],
+  input: AddToCartInput,
+  quantity: number
+): CartItem[] {
   if (!input.productId?.trim() || !input.variantId?.trim()) return currentItems;
 
   const safeQuantity = normalizeQuantity(quantity);
@@ -72,11 +76,11 @@ function hasCompleteVariant(
 ): item is FavoriteItem & { variantId: string; color: string; size: string } {
   return Boolean(
     item.variantId &&
-      item.variantId.trim().length > 0 &&
-      item.color &&
-      item.color.trim().length > 0 &&
-      item.size &&
-      item.size.trim().length > 0
+    item.variantId.trim().length > 0 &&
+    item.color &&
+    item.color.trim().length > 0 &&
+    item.size &&
+    item.size.trim().length > 0
   );
 }
 
@@ -172,10 +176,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setItems([]);
   }, []);
 
-  const totalCount = useMemo(
-    () => items.reduce((acc, item) => acc + item.quantity, 0),
-    [items]
-  );
+  const totalCount = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items]);
 
   const totalAmount = useMemo(() => {
     const rawTotal = items.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
@@ -195,10 +196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [items, totalCount, totalAmount, addToCart, updateQuantity, removeFromCart, clearCart]
   );
 
-  const favoriteIds = useMemo(
-    () => new Set(favorites.map((fav) => fav.productId)),
-    [favorites]
-  );
+  const favoriteIds = useMemo(() => new Set(favorites.map((fav) => fav.productId)), [favorites]);
 
   const addToFavorites = useCallback((item: FavoriteItem) => {
     setFavorites((prev) => {
@@ -222,10 +220,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const isFavorite = useCallback(
-    (productId: string) => favoriteIds.has(productId),
-    [favoriteIds]
-  );
+  const isFavorite = useCallback((productId: string) => favoriteIds.has(productId), [favoriteIds]);
 
   const clearFavorites = useCallback(() => {
     setFavorites([]);

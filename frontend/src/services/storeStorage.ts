@@ -68,10 +68,7 @@ export function parseStorageList<T>(
   }
 }
 
-export function readStorageList<T>(
-  key: string,
-  validator: (value: unknown) => value is T
-): T[] {
+export function readStorageList<T>(key: string, validator: (value: unknown) => value is T): T[] {
   if (typeof window === "undefined") return [];
 
   try {
