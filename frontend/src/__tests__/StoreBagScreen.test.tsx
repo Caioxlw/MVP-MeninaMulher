@@ -1,3 +1,4 @@
+import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -92,8 +93,8 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
     expect(screen.getByText("Preto")).toBeInTheDocument();
     expect(screen.getByText("Rosa")).toBeInTheDocument();
     expect(screen.getByText("Subtotal (3 peças)")).toBeInTheDocument();
-    expect(screen.getByText(/199,70/)).toBeInTheDocument();
-    expect(screen.getByText(/79,80/)).toBeInTheDocument();
+    expect(screen.getAllByText(/199,70/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/79,80/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("atualiza quantidades via botões acessíveis (+ e -) e remove item ao zerar ou clicar na lixeira", () => {
@@ -115,7 +116,7 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
 
     fireEvent.click(increaseBtn);
     expect(screen.getByText("4 itens selecionados")).toBeInTheDocument();
-    expect(screen.getByText(/319,60/)).toBeInTheDocument();
+    expect(screen.getAllByText(/319,60/).length).toBeGreaterThanOrEqual(2);
 
     fireEvent.click(decreaseBtn);
     expect(screen.getByText("3 itens selecionados")).toBeInTheDocument();
