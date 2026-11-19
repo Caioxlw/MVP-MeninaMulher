@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useOptionalCart, useOptionalFavorites } from "../../contexts/StoreContext";
 import { ROUTES } from "../../routes/routes.config";
 
 export interface StoreLayoutProps {
@@ -37,11 +38,16 @@ const DRAWER_CATEGORIES = [
   { label: "Conjuntos", path: "/categoria/conjuntos", badge: "Novos" },
 ];
 
-export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: StoreLayoutProps) {
+export function StoreLayout({ children, bagCount, favoritesCount }: StoreLayoutProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
+  const cartContext = useOptionalCart();
+  const favoritesContext = useOptionalFavorites();
+
+  const resolvedBagCount = bagCount ?? cartContext?.totalCount ?? 0;
+  const resolvedFavoritesCount = favoritesCount ?? favoritesContext?.favoritesCount ?? 0;
 
   const isActivePath = (targetPath: string) => {
     if (targetPath === ROUTES.store.home) {
@@ -139,16 +145,16 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
             {/* Atalho Favoritos */}
             <Link
               to={ROUTES.store.favorites}
-              aria-label={`Favoritos (${favoritesCount} itens)`}
+              aria-label={`Favoritos (${resolvedFavoritesCount} itens)`}
               className="touch-target relative inline-flex items-center justify-center rounded-xl text-brand-plum hover:bg-brand-soft transition-colors no-underline"
             >
               <Heart className="w-5 h-5" />
-              {favoritesCount > 0 && (
+              {resolvedFavoritesCount > 0 && (
                 <span
                   data-testid="store-favorites-count"
                   className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-blush text-brand-plum text-[11px] font-bold inline-flex items-center justify-center"
                 >
-                  {favoritesCount}
+                  {resolvedFavoritesCount}
                 </span>
               )}
             </Link>
@@ -156,16 +162,18 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
             {/* Atalho Sacola com Contador */}
             <Link
               to={ROUTES.store.bag}
-              aria-label={`Sacola de compras (${bagCount} itens)`}
+              aria-label={`Sacola de compras (${resolvedBagCount} itens)`}
               className="touch-target relative inline-flex items-center justify-center rounded-xl text-brand-plum hover:bg-brand-soft transition-colors no-underline"
             >
               <ShoppingBag className="w-5 h-5" />
-              <span
-                data-testid="store-bag-count"
-                className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary text-white text-[11px] font-bold inline-flex items-center justify-center"
-              >
-                {bagCount}
-              </span>
+              {resolvedBagCount > 0 && (
+                <span
+                  data-testid="store-bag-count"
+                  className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-primary text-white text-[11px] font-bold inline-flex items-center justify-center"
+                >
+                  {resolvedBagCount}
+                </span>
+              )}
             </Link>
           </div>
         </div>
@@ -266,9 +274,14 @@ export function StoreLayout({ children, bagCount = 4, favoritesCount = 3 }: Stor
                     <Heart className="w-4 h-4" />
                     Favoritos
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-brand-primary text-white">
-                    {favoritesCount}
-                  </span>
+                  {resolvedFavoritesCount > 0 && (
+                    <span
+                      data-testid="drawer-favorites-count"
+                      className="px-2 py-0.5 rounded-full text-xs font-bold bg-brand-primary text-white"
+                    >
+                      {resolvedFavoritesCount}
+                    </span>
+                  )}
                 </Link>
 
                 <Link

@@ -291,10 +291,18 @@ export function useCart(): CartContextValue {
   return context;
 }
 
+export function useOptionalCart(): CartContextValue | null {
+  return useContext(CartContext);
+}
+
 export function useFavorites(): FavoritesContextValue {
   const context = useContext(FavoritesContext);
   if (!context) {
     throw new Error("useFavorites deve ser utilizado dentro de um StoreProvider.");
   }
   return context;
+}
+
+export function useOptionalFavorites(): FavoritesContextValue | null {
+  return useContext(FavoritesContext);
 }

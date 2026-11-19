@@ -3,9 +3,58 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AdminLayout } from "../components/layout/AdminLayout";
 import { StoreLayout } from "../components/layout/StoreLayout";
+import { StoreProvider, useCart, useFavorites } from "../contexts/StoreContext";
 import { AppRoutes } from "../routes/AppRoutes";
 import { ROUTES } from "../routes/routes.config";
 import { clearAdminSession, seedDemoAdminSession } from "../services/authApi";
+
+function DynamicStoreControls() {
+  const { addToCart, removeFromCart } = useCart();
+  const { toggleFavorite } = useFavorites();
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() =>
+          addToCart(
+            {
+              productId: "prod-1",
+              variantId: "var-1",
+              name: "Conjunto Renda Aurora",
+              category: "Conjuntos",
+              color: "Vermelho Rubi",
+              colorHex: "#9E1B46",
+              size: "M",
+              unitPrice: 89.9,
+              imageAlt: "Conjunto Renda Aurora",
+            },
+            2
+          )
+        }
+      >
+        Adicionar 2 à sacola
+      </button>
+      <button type="button" onClick={() => removeFromCart("prod-1-var-1")}>
+        Remover da sacola
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          toggleFavorite({
+            productId: "prod-1",
+            name: "Conjunto Renda Aurora",
+            category: "Conjuntos",
+            price: 89.9,
+            imageAlt: "Conjunto Renda Aurora",
+          })
+        }
+      >
+        Alternar favorito
+      </button>
+    </div>
+  );
+}
 
 describe("Task #114 — Layouts Responsivos da Loja e do Painel Administrativo", () => {
   beforeEach(() => {
@@ -13,6 +62,7 @@ describe("Task #114 — Layouts Responsivos da Loja e do Painel Administrativo",
   });
 
   afterEach(() => {
+    window.localStorage.clear();
     clearAdminSession();
     cleanup();
   });
@@ -89,5 +139,41 @@ describe("Task #114 — Layouts Responsivos da Loja e do Painel Administrativo",
       "page"
     );
     expect(screen.getByTestId("admin-bottom-link-stock").getAttribute("aria-current")).toBe("page");
+  });
+
+  it("Task #216 — deve atualizar dinamicamente os badges de Favoritos e Sacola pelo StoreContext e ocultá-los quando zerados", () => {
+    window.localStorage.clear();
+
+    render(
+      <MemoryRouter initialEntries={[ROUTES.store.home]}>
+        <StoreProvider>
+          <StoreLayout>
+            <DynamicStoreControls />
+          </StoreLayout>
+        </StoreProvider>
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByTestId("store-bag-count")).toBeNull();
+    expect(screen.queryByTestId("store-favorites-count")).toBeNull();
+    expect(screen.getByLabelText("Sacola de compras (0 itens)")).toBeDefined();
+    expect(screen.getByLabelText("Favoritos (0 itens)")).toBeDefined();
+
+    fireEvent.click(screen.getByText("Adicionar 2 à sacola"));
+    expect(screen.getByTestId("store-bag-count").textContent).toBe("2");
+    expect(screen.getByLabelText("Sacola de compras (2 itens)")).toBeDefined();
+
+    fireEvent.click(screen.getByText("Alternar favorito"));
+    expect(screen.getByTestId("store-favorites-count").textContent).toBe("1");
+    expect(screen.getByLabelText("Favoritos (1 itens)")).toBeDefined();
+
+    fireEvent.click(screen.getByLabelText("Abrir menu de navegação"));
+    expect(screen.getByTestId("drawer-favorites-count").textContent).toBe("1");
+    fireEvent.click(screen.getByLabelText("Fechar menu de navegação"));
+
+    fireEvent.click(screen.getByText("Remover da sacola"));
+    fireEvent.click(screen.getByText("Alternar favorito"));
+    expect(screen.queryByTestId("store-bag-count")).toBeNull();
+    expect(screen.queryByTestId("store-favorites-count")).toBeNull();
   });
 });
