@@ -21,7 +21,7 @@ import {
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { StoreLayout } from "../components/layout/StoreLayout";
-import { StoreProvider } from "../contexts/StoreContext";
+import { StoreProvider, useCart, useFavorites } from "../contexts/StoreContext";
 import {
   Alert,
   Badge,
@@ -37,7 +37,11 @@ import { AdminProductFormScreen } from "../pages/admin/AdminProductFormScreen";
 import { AdminProductsScreen } from "../pages/admin/AdminProductsScreen";
 import { AdminStockScreen } from "../pages/admin/AdminStockScreen";
 import { StoreProductDetailScreen } from "../pages/store/StoreProductDetailScreen";
-import { fetchPublicProducts, type CatalogProductItem } from "../services/catalogApi";
+import {
+  fetchPublicProducts,
+  mapCatalogProductToFavorite,
+  type CatalogProductItem,
+} from "../services/catalogApi";
 import {
   ADMIN_ROUTE_DESCRIPTORS,
   ROUTES,
@@ -238,7 +242,7 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState<number>(0);
-  const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [filterText, setFilterText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
 
@@ -287,12 +291,6 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   }, []);
 
   const isConnected = health?.services?.database?.status === "connected";
-
-  const toggleFavorite = (productId: string) => {
-    setFavorites((prev) =>
-      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
-    );
-  };
 
   const categoryTabs =
     catalogProducts.length > 0
@@ -470,8 +468,8 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
                 colors={product.colors}
                 badgeText={product.badgeText}
                 stockStatus={product.stockStatus}
-                isFavorite={favorites.includes(product.id)}
-                onToggleFavorite={toggleFavorite}
+                isFavorite={isFavorite(product.id)}
+                onToggleFavorite={() => toggleFavorite(mapCatalogProductToFavorite(product))}
                 onAction={(id) => navigate(`/produto/${id}`)}
               />
             ))}
@@ -620,7 +618,7 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const [selectedColor, setSelectedColor] = useState("Todas");
   const [selectedSize, setSelectedSize] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
-  const [favorites, setFavorites] = useState<string[]>(["sutia-renda-noir"]);
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   useEffect(() => {
     let active = true;
@@ -684,12 +682,6 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
       !query || p.name.toLowerCase().includes(query) || p.subtitle.toLowerCase().includes(query);
     return matchesCategory && matchesColor && matchesSize && matchesQuery;
   });
-
-  const toggleFavorite = (productId: string) => {
-    setFavorites((prev) =>
-      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
-    );
-  };
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-8">
@@ -809,8 +801,8 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
               colors={product.colors}
               badgeText={product.badgeText}
               stockStatus={product.stockStatus}
-              isFavorite={favorites.includes(product.id)}
-              onToggleFavorite={toggleFavorite}
+              isFavorite={isFavorite(product.id)}
+              onToggleFavorite={() => toggleFavorite(mapCatalogProductToFavorite(product))}
               onAction={(id) => navigate(`/produto/${id}`)}
             />
           ))}
@@ -1126,13 +1118,70 @@ function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) {
  */
 function StoreFavoritesScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const navigate = useNavigate();
-  const [favoriteIds, setFavoriteIds] = useState<string[]>([
-    "sutia-renda-noir",
-    "calcinha-algodao-doce",
-    "conjunto-microfibra-nude",
-  ]);
+  const { favorites, favoritesCount, removeFromFavorites, clearFavorites, moveAllFavoritesToCart } =
+    useFavorites();
+  const { addToCart } = useCart();
+  const [catalogById, setCatalogById] = useState<Record<string, CatalogProductItem>>({});
+  const [transferNotice, setTransferNotice] = useState<{
+    variant: "warning" | "success" | "info";
+    title: string;
+    message: string;
+    showBagAction?: boolean;
+  } | null>(null);
 
-  const favoriteProducts = PREVIEW_PRODUCTS.filter((p) => favoriteIds.includes(p.id));
+  useEffect(() => {
+    let active = true;
+    fetchPublicProducts()
+      .then((items) => {
+        if (!active) return;
+        const indexed: Record<string, CatalogProductItem> = {};
+        for (const item of items) {
+          indexed[item.id] = item;
+        }
+        setCatalogById(indexed);
+      })
+      .catch(() => {
+        // Mantém exibição com os dados persistidos em localStorage
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleClearFavorites = () => {
+    setTransferNotice(null);
+    clearFavorites();
+  };
+
+  const handleAddAllToBag = () => {
+    if (favorites.length === 0) return;
+
+    const result = moveAllFavoritesToCart();
+
+    if (result.pendingFavorites.length === 0 && result.transferredCount > 0) {
+      setTransferNotice(null);
+      navigate(ROUTES.store.bag);
+      return;
+    }
+
+    if (result.transferredCount > 0 && result.pendingFavorites.length > 0) {
+      setTransferNotice({
+        variant: "warning",
+        title: `${result.transferredCount} peça(s) adicionada(s) à sacola`,
+        message: `${result.pendingFavorites.length} peça(s) ainda precisa(m) da escolha de tamanho e cor (ou está(ão) sem estoque) antes de ir para a sacola.`,
+        showBagAction: true,
+      });
+      return;
+    }
+
+    setTransferNotice({
+      variant: "warning",
+      title: "Escolha o tamanho e a cor antes de adicionar",
+      message:
+        "As peças favoritadas precisam ter uma variação disponível selecionada. Abra o produto desejado para escolher cor e tamanho.",
+      showBagAction: false,
+    });
+  };
 
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10 space-y-6">
@@ -1147,41 +1196,52 @@ function StoreFavoritesScreen({ descriptor }: { descriptor: RouteDescriptor }) {
             </h1>
             <p className="text-xs sm:text-sm text-brand-muted">
               Peças que você se apaixonou{" "}
-              <strong className="text-brand-primary">
-                ({favoriteProducts.length} peças salvas neste aparelho)
+              <strong data-testid="favorites-saved-count" className="text-brand-primary">
+                ({favoritesCount} {favoritesCount === 1 ? "peça salva" : "peças salvas"} neste
+                aparelho)
               </strong>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {favoriteProducts.length > 0 ? (
-            <Button variant="secondary" size="sm" onClick={() => setFavoriteIds([])}>
+        <div className="flex flex-wrap items-center gap-2">
+          {favorites.length > 0 && (
+            <Button variant="secondary" size="sm" onClick={handleClearFavorites}>
               Limpar Favoritos
             </Button>
-          ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                setFavoriteIds([
-                  "sutia-renda-noir",
-                  "calcinha-algodao-doce",
-                  "conjunto-microfibra-nude",
-                ])
-              }
-            >
-              Restaurar Favoritos
-            </Button>
           )}
-          <Button variant="primary" size="sm" onClick={() => navigate(ROUTES.store.bag)}>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={favorites.length === 0}
+            onClick={handleAddAllToBag}
+          >
             <ShoppingBag className="w-4 h-4" />
             Adicionar todos à sacola
           </Button>
         </div>
       </div>
 
-      {favoriteProducts.length === 0 ? (
+      {transferNotice && (
+        <Alert
+          variant={transferNotice.variant}
+          title={transferNotice.title}
+          onClose={() => setTransferNotice(null)}
+        >
+          <span>{transferNotice.message}</span>
+          {transferNotice.showBagAction && (
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.store.bag)}
+              className="font-bold underline text-brand-primary ml-2 cursor-pointer"
+            >
+              Ir para a Sacola →
+            </button>
+          )}
+        </Alert>
+      )}
+
+      {favorites.length === 0 ? (
         <EmptyState
           title="Sua lista de desejos está vazia"
           description="Toque no coração das peças que você mais gostar no catálogo para salvá-las aqui."
@@ -1190,27 +1250,73 @@ function StoreFavoritesScreen({ descriptor }: { descriptor: RouteDescriptor }) {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-          {favoriteProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              id={product.id}
-              name={product.name}
-              category={product.category}
-              subtitle={product.subtitle}
-              price={product.price}
-              installmentText={product.installmentText}
-              sizes={product.sizes}
-              colors={product.colors}
-              badgeText={product.badgeText}
-              stockStatus={product.stockStatus}
-              isFavorite={true}
-              onToggleFavorite={(id) =>
-                setFavoriteIds((prev) => prev.filter((item) => item !== id))
+          {favorites.map((fav) => {
+            const catalogMatch = catalogById[fav.productId];
+            const hasCompleteVariant = Boolean(
+              fav.variantId?.trim() && fav.color?.trim() && fav.size?.trim()
+            );
+            const isOutOfStock = catalogMatch?.stockStatus === "out_of_stock";
+
+            const cardSubtitle =
+              catalogMatch?.subtitle ??
+              (hasCompleteVariant
+                ? `Cor ${fav.color} • Tamanho ${fav.size}`
+                : "Selecione tamanho e cor na página do produto");
+
+            const cardSizes = catalogMatch?.sizes ?? (fav.size ? [fav.size] : undefined);
+            const cardColors = catalogMatch?.colors ?? (fav.colorHex ? [fav.colorHex] : undefined);
+
+            const handleCardAction = () => {
+              if (hasCompleteVariant && fav.variantId && fav.color && fav.size && !isOutOfStock) {
+                addToCart(
+                  {
+                    productId: fav.productId,
+                    variantId: fav.variantId,
+                    name: fav.name,
+                    category: fav.category,
+                    color: fav.color,
+                    colorHex: fav.colorHex || "#23101B",
+                    size: fav.size,
+                    unitPrice: fav.price,
+                    imageUrl: fav.imageUrl,
+                    imageAlt: fav.imageAlt,
+                  },
+                  1
+                );
+                removeFromFavorites(fav.productId);
+                navigate(ROUTES.store.bag);
+                return;
               }
-              actionLabel="Adicionar à sacola"
-              onAction={() => navigate(ROUTES.store.bag)}
-            />
-          ))}
+
+              navigate(`/produto/${fav.productId}`);
+            };
+
+            return (
+              <ProductCard
+                key={fav.productId}
+                id={fav.productId}
+                name={fav.name}
+                category={fav.category}
+                subtitle={cardSubtitle}
+                price={fav.price}
+                installmentText={catalogMatch?.installmentText}
+                imageUrl={fav.imageUrl ?? catalogMatch?.imageUrl}
+                imageAlt={fav.imageAlt || catalogMatch?.imageAlt || fav.name}
+                sizes={cardSizes}
+                colors={cardColors}
+                badgeText={catalogMatch?.badgeText}
+                stockStatus={catalogMatch?.stockStatus ?? "available"}
+                isFavorite={true}
+                onToggleFavorite={(id) => removeFromFavorites(id)}
+                actionLabel={
+                  hasCompleteVariant && !isOutOfStock
+                    ? "Adicionar à sacola"
+                    : "Escolher tamanho e cor"
+                }
+                onAction={handleCardAction}
+              />
+            );
+          })}
         </div>
       )}
     </div>
