@@ -99,9 +99,7 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
                         <img
                           src={item.imageUrl}
                           alt={item.imageAlt || item.name}
-                          onError={() =>
-                            setFailedImages((prev) => ({ ...prev, [imageKey]: true }))
-                          }
+                          onError={() => setFailedImages((prev) => ({ ...prev, [imageKey]: true }))}
                           className="w-20 h-24 object-cover rounded-xl bg-brand-soft border border-brand-border shrink-0"
                         />
                       ) : (

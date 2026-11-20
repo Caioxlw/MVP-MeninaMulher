@@ -159,9 +159,12 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
     fireEvent.change(screen.getByPlaceholderText("Ex.: Amanda Ferreira"), {
       target: { value: "Amanda" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Ex.: Embalagem para presente, tirar etiqueta..."), {
-      target: { value: "Embalar para presente" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText("Ex.: Embalagem para presente, tirar etiqueta..."),
+      {
+        target: { value: "Embalar para presente" },
+      }
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Enviar Pedido pelo WhatsApp/i }));
 
