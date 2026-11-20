@@ -253,10 +253,20 @@ describe("Serviço de pedidos administrativos — ordersApi (Task #221 / PBI #30
   });
 
   describe("helpers puros", () => {
-    it("formatOrderNumber formata com zero à esquerda em 4 dígitos", () => {
+    it("formatOrderNumber formata com zero à esquerda em 4 dígitos e trata valores inválidos", () => {
       expect(formatOrderNumber(1)).toBe("#0001");
       expect(formatOrderNumber(42)).toBe("#0042");
       expect(formatOrderNumber(12345)).toBe("#12345");
+      expect(formatOrderNumber(Number.NaN)).toBe("#0000");
+      expect(formatOrderNumber(-5)).toBe("#0000");
+    });
+
+    it("ignora page e limit inválidos (<= 0 ou NaN) na query string", async () => {
+      const fetchMock = mockFetch(jsonResponse({ data: [] }));
+
+      await getAdminOrders({ page: 0, limit: Number.NaN });
+
+      expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/orders");
     });
 
     it("formatOrderDateTime formata ISO date em pt-BR e trata data inválida", () => {
@@ -278,18 +288,37 @@ describe("Serviço de pedidos administrativos — ordersApi (Task #221 / PBI #30
         label: "Cancelado",
         variant: "outOfStock",
       });
+      expect(getOrderStatusMeta("UNKNOWN" as AdminOrder["status"])).toEqual({
+        label: "UNKNOWN",
+        variant: "neutral",
+      });
     });
 
-    it("sortOrdersNewestFirst ordena do mais recente para o mais antigo sem mutar o array original", () => {
+    it("sortOrdersNewestFirst ordena do mais recente para o mais antigo sem mutar o array original e tolera datas inválidas", () => {
       const input: AdminOrder[] = [
         { ...API_ORDER_OLDER, totalAmount: 159.8, items: [] },
+        {
+          ...API_ORDER_NEWER,
+          id: "ord-invalid",
+          createdAt: "invalid-date",
+          totalAmount: 10,
+          items: [],
+        },
         { ...API_ORDER_NEWER, totalAmount: 249.8, items: [] },
       ];
 
       const sorted = sortOrdersNewestFirst(input);
 
-      expect(sorted.map((o) => o.id)).toEqual(["ord-2", "ord-1"]);
-      expect(input.map((o) => o.id)).toEqual(["ord-1", "ord-2"]);
+      expect(sorted.map((o) => o.id)).toEqual(["ord-2", "ord-1", "ord-invalid"]);
+      expect(input.map((o) => o.id)).toEqual(["ord-1", "ord-invalid", "ord-2"]);
+    });
+
+    it("calcula totalPages como 0 em lista vazia quando meta é omitido", async () => {
+      mockFetch(jsonResponse({ data: [] }));
+
+      const result = await getAdminOrders();
+
+      expect(result.meta).toEqual({ page: 1, limit: 20, total: 0, totalPages: 0 });
     });
   });
 });

@@ -56,30 +56,10 @@ export class OrdersApiError extends Error {
   }
 }
 
-interface RawOrderItem {
-  id: string;
-  variantId: string;
-  quantity: number;
-  unitPrice: string | number;
-  size: string;
-  color: string;
-  productName: string;
-}
-
-interface RawOrder {
-  id: string;
-  orderNumber: number;
-  status: OrderStatus;
+type RawOrder = Omit<AdminOrder, "totalAmount" | "items"> & {
   totalAmount: string | number;
-  items?: RawOrderItem[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface RawPaginatedOrdersResponse {
-  data?: unknown;
-  meta?: Partial<OrdersPaginationMeta>;
-}
+  items?: Array<Omit<AdminOrderItem, "unitPrice"> & { unitPrice: string | number }>;
+};
 
 const SESSION_EXPIRED_MESSAGE = "Sua sessão expirou. Entre novamente.";
 const OFFLINE_MESSAGE =
@@ -99,32 +79,35 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
-function toNumber(value: string | number): number {
+function toNumber(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function normalizeOrderItem(raw: RawOrderItem): AdminOrderItem {
-  return {
-    id: String(raw.id),
-    variantId: String(raw.variantId),
-    quantity: Number(raw.quantity) || 0,
-    unitPrice: toNumber(raw.unitPrice),
-    size: String(raw.size),
-    color: String(raw.color),
-    productName: String(raw.productName),
-  };
+function parseTimestamp(isoDate: string): number {
+  const time = Date.parse(isoDate);
+  return Number.isNaN(time) ? 0 : time;
 }
 
 function normalizeOrder(raw: RawOrder): AdminOrder {
   return {
-    id: String(raw.id),
-    orderNumber: Number(raw.orderNumber),
+    id: String(raw.id ?? ""),
+    orderNumber: Math.max(0, Math.trunc(toNumber(raw.orderNumber))),
     status: raw.status,
     totalAmount: toNumber(raw.totalAmount),
-    items: Array.isArray(raw.items) ? raw.items.map(normalizeOrderItem) : [],
-    createdAt: String(raw.createdAt),
-    updatedAt: String(raw.updatedAt),
+    items: Array.isArray(raw.items)
+      ? raw.items.map((item) => ({
+          id: String(item.id ?? ""),
+          variantId: String(item.variantId ?? ""),
+          quantity: toNumber(item.quantity),
+          unitPrice: toNumber(item.unitPrice),
+          size: String(item.size ?? ""),
+          color: String(item.color ?? ""),
+          productName: String(item.productName ?? ""),
+        }))
+      : [],
+    createdAt: String(raw.createdAt ?? ""),
+    updatedAt: String(raw.updatedAt ?? ""),
   };
 }
 
@@ -133,60 +116,39 @@ function buildOrdersUrl(params: GetAdminOrdersParams = {}): string {
   if (params.status && params.status !== "ALL") {
     query.set("status", params.status);
   }
-  if (params.page !== undefined) {
-    query.set("page", String(params.page));
+  if (params.page !== undefined && Number.isFinite(params.page) && params.page > 0) {
+    query.set("page", String(Math.trunc(params.page)));
   }
-  if (params.limit !== undefined) {
-    query.set("limit", String(params.limit));
+  if (params.limit !== undefined && Number.isFinite(params.limit) && params.limit > 0) {
+    query.set("limit", String(Math.trunc(params.limit)));
   }
   const qs = query.toString();
   return qs ? `/api/admin/orders?${qs}` : "/api/admin/orders";
 }
 
-async function readErrorMessage(response: Response): Promise<string | null> {
-  const body = (await response.json().catch(() => null)) as {
-    error?: unknown;
-    message?: unknown;
-  } | null;
-  if (body && typeof body.error === "string" && body.error.trim()) {
-    return body.error;
-  }
-  if (body && typeof body.message === "string" && body.message.trim()) {
-    return body.message;
-  }
-  return null;
-}
-
 export function sortOrdersNewestFirst(orders: AdminOrder[]): AdminOrder[] {
-  return [...orders].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  return [...orders].sort((a, b) => parseTimestamp(b.createdAt) - parseTimestamp(a.createdAt));
 }
 
 export function formatOrderNumber(orderNumber: number): string {
-  return `#${String(orderNumber).padStart(4, "0")}`;
+  const safe = Math.max(0, Math.trunc(toNumber(orderNumber)));
+  return `#${String(safe).padStart(4, "0")}`;
 }
 
 export function formatOrderDateTime(isoDate: string): string {
-  const parsed = new Date(isoDate);
-  if (Number.isNaN(parsed.getTime())) {
-    return "—";
-  }
-  return DATE_TIME_FORMATTER.format(parsed);
+  const time = Date.parse(isoDate);
+  return Number.isNaN(time) ? "—" : DATE_TIME_FORMATTER.format(time);
 }
 
 export function getOrderStatusMeta(status: OrderStatus): { label: string; variant: BadgeVariant } {
-  return ORDER_STATUS_META[status];
+  return ORDER_STATUS_META[status] ?? { label: String(status || "—"), variant: "neutral" };
 }
 
 export async function getAdminOrders(
   params: GetAdminOrdersParams = {}
 ): Promise<PaginatedOrdersResult> {
-  const headers: Record<string, string> = {};
   const token = getAdminSession()?.token;
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   let response: Response;
   try {
@@ -196,20 +158,31 @@ export async function getAdminOrders(
   }
 
   if (!response.ok) {
-    const apiMessage = await readErrorMessage(response);
     if (response.status === 401 || response.status === 403) {
       clearAdminSession();
       throw new OrdersApiError("UNAUTHORIZED", SESSION_EXPIRED_MESSAGE, response.status);
     }
+    if (response.status >= 500) {
+      throw new OrdersApiError("OFFLINE", OFFLINE_MESSAGE, response.status);
+    }
+
+    const errBody = (await response.json().catch(() => null)) as {
+      error?: unknown;
+      message?: unknown;
+    } | null;
+    const apiMessage =
+      typeof errBody?.error === "string" && errBody.error.trim()
+        ? errBody.error
+        : typeof errBody?.message === "string" && errBody.message.trim()
+          ? errBody.message
+          : null;
+
     if (response.status === 400) {
       throw new OrdersApiError(
         "VALIDATION",
         apiMessage ?? "Parâmetros inválidos para consulta de pedidos.",
         response.status
       );
-    }
-    if (response.status >= 500) {
-      throw new OrdersApiError("OFFLINE", OFFLINE_MESSAGE, response.status);
     }
     throw new OrdersApiError(
       "UNKNOWN",
@@ -218,7 +191,10 @@ export async function getAdminOrders(
     );
   }
 
-  const body = (await response.json().catch(() => null)) as RawPaginatedOrdersResponse | null;
+  const body = (await response.json().catch(() => null)) as {
+    data?: unknown;
+    meta?: Partial<OrdersPaginationMeta>;
+  } | null;
   if (!body || !Array.isArray(body.data)) {
     throw new OrdersApiError(
       "UNKNOWN",
@@ -228,11 +204,18 @@ export async function getAdminOrders(
   }
 
   const orders = sortOrdersNewestFirst((body.data as RawOrder[]).map(normalizeOrder));
+  const total = Math.max(0, toNumber(body.meta?.total ?? orders.length));
+  const limit = toNumber(body.meta?.limit ?? params.limit ?? 20) || 20;
   const meta: OrdersPaginationMeta = {
-    page: Number(body.meta?.page ?? params.page ?? 1),
-    limit: Number(body.meta?.limit ?? params.limit ?? 20),
-    total: Number(body.meta?.total ?? orders.length),
-    totalPages: Number(body.meta?.totalPages ?? 1),
+    page: toNumber(body.meta?.page ?? params.page ?? 1) || 1,
+    limit,
+    total,
+    totalPages:
+      body.meta?.totalPages !== undefined
+        ? toNumber(body.meta.totalPages)
+        : total === 0
+          ? 0
+          : Math.ceil(total / limit),
   };
 
   return { data: orders, meta };
