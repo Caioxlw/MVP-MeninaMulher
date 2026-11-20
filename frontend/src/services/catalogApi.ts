@@ -1,4 +1,5 @@
 import type { ProductStockStatus } from "../components/ui/ProductCard";
+import type { FavoriteItem } from "../types/cart";
 import { resolveProductOverallAvailability, type StoreProductVariant } from "./availability";
 import { resolveColorHex } from "./stockApi";
 
@@ -325,6 +326,32 @@ export async function fetchPublicProductDetail(
       errorMessage: "Não foi possível conectar ao servidor para carregar os detalhes do produto.",
     };
   }
+}
+
+/**
+ * Converte um produto do catálogo público para o formato persistido em Favoritos (`PBI #23` / `#217`).
+ * Inclui automaticamente a primeira variação em estoque (quando existir) para suportar
+ * transferência direta para a sacola.
+ */
+export function mapCatalogProductToFavorite(product: CatalogProductItem): FavoriteItem {
+  const defaultVariant = product.variants.find((variant) => variant.stock > 0);
+
+  return {
+    productId: product.id,
+    name: product.name,
+    category: product.category,
+    price: product.price,
+    imageUrl: product.imageUrl,
+    imageAlt: product.imageAlt,
+    ...(defaultVariant
+      ? {
+          variantId: defaultVariant.id,
+          color: defaultVariant.color,
+          colorHex: defaultVariant.colorHex,
+          size: defaultVariant.size,
+        }
+      : {}),
+  };
 }
 
 /**

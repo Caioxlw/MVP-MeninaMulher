@@ -1,12 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppRoutes } from "../routes/AppRoutes";
 import {
   fetchPublicProductDetail,
   resolveProductGalleryImages,
   type ApiPublicProductDto,
 } from "../services/catalogApi";
+import { CART_STORAGE_KEY } from "../services/storeStorage";
 
 const SEED_AURORA_PRODUCT: ApiPublicProductDto = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -42,8 +43,13 @@ const SEED_AURORA_PRODUCT: ApiPublicProductDto = {
 };
 
 describe("Página de Detalhes do Produto com Galeria, Tamanhos e Cores (PBI #22 — RF04, RF05, RNF01, RNF07, US01, US03)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   afterEach(() => {
     cleanup();
+    localStorage.clear();
     vi.unstubAllGlobals();
   });
 
@@ -187,6 +193,126 @@ describe("Página de Detalhes do Produto com Galeria, Tamanhos e Cores (PBI #22 
     fireEvent.click(addBtn);
 
     expect(screen.getByText("Adicionado à sacola!")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ir para a Sacola/i })).toBeDefined();
+    expect(screen.getByTestId("store-bag-count").textContent).toBe("1");
+
+    const savedCart = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) ?? "[]");
+    expect(savedCart).toHaveLength(1);
+    expect(savedCart[0]).toMatchObject({
+      productId: SEED_AURORA_PRODUCT.id,
+      variantId: "var-aurora-m",
+      name: "Conjunto Renda Aurora",
+      category: "Conjuntos",
+      color: "Vermelho Rubi",
+      size: "M",
+      unitPrice: 89.9,
+      quantity: 1,
+      imageUrl:
+        "https://images.unsplash.com/photo-1582533561751-ef6f6ab93a2e?auto=format&fit=crop&w=800&q=80",
+      imageAlt: "Conjunto Renda Aurora Vermelho Rubi - Frente",
+    });
+    expect(typeof savedCart[0].colorHex).toBe("string");
+  });
+
+  it("envia a quantidade selecionada para o carrinho, respeita o estoque máximo e limpa o alerta ao alterar quantidade", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/variants")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => SEED_AURORA_PRODUCT.variants,
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => SEED_AURORA_PRODUCT,
+        };
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/produto/00000000-0000-4000-8000-000000000001"]}>
+        <AppRoutes />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Conjunto Renda Aurora" })).toBeDefined();
+    });
+
+    // Seleciona tamanho M (stock: 2) e aumenta quantidade até o máximo (2)
+    fireEvent.click(screen.getByTestId("size-option-M"));
+    const increaseBtn = screen.getByRole("button", { name: "Aumentar quantidade" });
+    const decreaseBtn = screen.getByRole("button", { name: "Diminuir quantidade" });
+
+    fireEvent.click(increaseBtn);
+    expect(screen.getByTestId("detail-selected-qty").textContent).toBe("2");
+    expect(increaseBtn.hasAttribute("disabled")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: /Adicionar à sacola/i }));
+
+    expect(screen.getByText("Adicionado à sacola!")).toBeDefined();
+    expect(screen.getByTestId("store-bag-count").textContent).toBe("2");
+
+    const savedCart = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) ?? "[]");
+    expect(savedCart).toHaveLength(1);
+    expect(savedCart[0].quantity).toBe(2);
+
+    // Alterar a quantidade limpa o alerta de feedback anterior
+    fireEvent.click(decreaseBtn);
+    expect(screen.getByTestId("detail-selected-qty").textContent).toBe("1");
+    expect(screen.queryByText("Adicionado à sacola!")).toBeNull();
+  });
+
+  it("mantém o botão desabilitado para variação esgotada e não adiciona nada à sacola", async () => {
+    const outOfStockProduct: ApiPublicProductDto = {
+      ...SEED_AURORA_PRODUCT,
+      variants: [
+        { id: "var-aurora-out-p", size: "P", color: "Preto", stock: 0 },
+        { id: "var-aurora-out-m", size: "M", color: "Preto", stock: 0 },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/variants")) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => outOfStockProduct.variants,
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => outOfStockProduct,
+        };
+      })
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/produto/00000000-0000-4000-8000-000000000001"]}>
+        <AppRoutes />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Conjunto Renda Aurora" })).toBeDefined();
+    });
+
+    const outBtn = screen.getByRole("button", { name: /Variação Esgotada — Indisponível/i });
+    expect(outBtn.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(outBtn);
+
+    expect(screen.queryByText("Adicionado à sacola!")).toBeNull();
+    expect(screen.queryByTestId("store-bag-count")).toBeNull();
+    expect(localStorage.getItem(CART_STORAGE_KEY)).toBeNull();
   });
 
   it("exibe alerta e EmptyState quando o produto não existe ou está oculto (404 em GET /api/products/:id)", async () => {
