@@ -4,8 +4,6 @@ import {
   Lock,
   MapPin,
   MessageCircle,
-  Minus,
-  Plus,
   RefreshCw,
   Ruler,
   Search,
