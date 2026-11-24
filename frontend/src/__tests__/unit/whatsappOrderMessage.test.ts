@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildWhatsAppCheckoutUrl,
   buildWhatsAppOrderMessage,
   buildWhatsAppOrderMessageLines,
   consumeNextLocalOrderNumber,
+  DEFAULT_STORE_WHATSAPP_NUMBER,
   formatOrderCurrencyBRL,
   formatOrderNumberTag,
   INITIAL_ORDER_NUMBER,
   ORDER_NUMBER_STORAGE_KEY,
   peekNextLocalOrderNumber,
   resolveOrderNumberForCheckout,
+  resolveStoreWhatsAppNumber,
+  sanitizeWhatsAppPhone,
 } from "../../services/whatsappOrderMessage";
 import type { CartItem } from "../../types/cart";
 
@@ -41,7 +45,7 @@ const MOCK_ITEMS: CartItem[] = [
   },
 ];
 
-describe("Gerador de Mensagem Padronizada do Pedido para WhatsApp (PBI #24 — RF08, US06, US08)", () => {
+describe("Gerador de Mensagem Padronizada e URL do WhatsApp (PBI #24 & PBI #25 — RF08, RF09, RNF03, US06, US08)", () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -134,5 +138,32 @@ describe("Gerador de Mensagem Padronizada do Pedido para WhatsApp (PBI #24 — R
     vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new Error("Offline")));
     const localResult = await resolveOrderNumberForCheckout(MOCK_ITEMS);
     expect(localResult).toEqual({ orderNumber: 1089, source: "local" });
+  });
+
+  it("sanitiza telefones de WhatsApp (com ou sem DDI 55) e gera a URL wa.me com a mensagem codificada (PBI #25 — RF09)", () => {
+    expect(sanitizeWhatsAppPhone("(81) 99372-0496")).toBe("5581993720496");
+    expect(sanitizeWhatsAppPhone("+55 81 99372-0496")).toBe("5581993720496");
+    expect(sanitizeWhatsAppPhone("123")).toBe("");
+    expect(sanitizeWhatsAppPhone(null)).toBe("");
+
+    expect(resolveStoreWhatsAppNumber()).toBe(DEFAULT_STORE_WHATSAPP_NUMBER);
+    expect(resolveStoreWhatsAppNumber("(81) 99372-0496")).toBe("5581993720496");
+
+    const url = buildWhatsAppCheckoutUrl({
+      phone: "(81) 99372-0496",
+      orderNumber: 1042,
+      items: MOCK_ITEMS,
+      customerName: "Camila",
+      notes: "Sem etiqueta",
+    });
+
+    expect(url).toMatch(/^https:\/\/wa\.me\/5581993720496\?text=/);
+    const decodedText = decodeURIComponent(url.split("?text=")[1]);
+    expect(decodedText).toContain("Pedido: #1042");
+    expect(decodedText).toContain("- 2x Conjunto Renda Aurora (Vermelho Rubi, Tam M)");
+    expect(decodedText).toContain("Quantidade total: 3 peças");
+    expect(decodedText).toContain("Cliente: Camila");
+    expect(decodedText).toContain("Obs: Sem etiqueta");
+    expect(decodedText).toContain("239,70");
   });
 });
