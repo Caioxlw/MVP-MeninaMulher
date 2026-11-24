@@ -58,7 +58,7 @@ function renderBagScreen(initialItems: CartItem[] = []) {
   );
 }
 
-describe("Issue #220 — StoreBagScreen (/sacola)", () => {
+describe("Issue #220 & PBI #24 — StoreBagScreen (/sacola)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -148,13 +148,18 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
   });
 
-  it("exibe 'A definir no WhatsApp' no envio e gera link WhatsApp com os itens reais, cliente, observações e total", () => {
+  it("exibe 'A definir no WhatsApp' no envio e gera link WhatsApp com número do pedido, itens reais, quantidade total, cliente, observações e total", () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     renderBagScreen(SAMPLE_ITEMS);
 
     expect(screen.getByText("A definir no WhatsApp")).toBeInTheDocument();
     expect(screen.queryByText(/Retirada na loja/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Entrega \/ Motoboy/)).not.toBeInTheDocument();
+
+    expect(screen.getByTestId("whatsapp-order-number")).toHaveTextContent("Pedido #1001");
+    const previewBox = screen.getByTestId("whatsapp-order-preview");
+    expect(previewBox.textContent).toContain("Pedido: #1001");
+    expect(previewBox.textContent).toContain("Quantidade total: 3 peças");
 
     fireEvent.change(screen.getByPlaceholderText("Ex.: Amanda Ferreira"), {
       target: { value: "Amanda" },
@@ -166,6 +171,9 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
       }
     );
 
+    expect(previewBox.textContent).toContain("Cliente: Amanda");
+    expect(previewBox.textContent).toContain("Obs: Embalar para presente");
+
     fireEvent.click(screen.getByRole("button", { name: /Enviar Pedido pelo WhatsApp/i }));
 
     expect(openSpy).toHaveBeenCalledTimes(1);
@@ -175,8 +183,10 @@ describe("Issue #220 — StoreBagScreen (/sacola)", () => {
     expect(features).toBe("noopener,noreferrer");
 
     const decoded = decodeURIComponent(String(url).split("?text=")[1]);
+    expect(decoded).toContain("Pedido: #1001");
     expect(decoded).toContain("- 1x Sutiã Renda Floral (Preto, Tam P)");
     expect(decoded).toContain("- 2x Calcinha Algodão Doce (Rosa, Tam M)");
+    expect(decoded).toContain("Quantidade total: 3 peças");
     expect(decoded).toContain("Forma de envio: A definir no WhatsApp");
     expect(decoded).toContain("Cliente: Amanda");
     expect(decoded).toContain("Obs: Embalar para presente");
