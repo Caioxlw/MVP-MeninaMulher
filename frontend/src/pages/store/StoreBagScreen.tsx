@@ -4,13 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, EmptyState, Input, Modal } from "../../components/ui";
 import { useCart } from "../../contexts/StoreContext";
 import { ROUTES, type RouteDescriptor } from "../../routes/routes.config";
-
-function formatBRL(value: number): string {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
-}
+import {
+  buildWhatsAppOrderMessageLines,
+  formatOrderCurrencyBRL,
+  formatOrderNumberTag,
+  peekNextLocalOrderNumber,
+} from "../../services/whatsappOrderMessage";
 
 /**
  * C09 / Desktop Sacola de Compras (/sacola)
@@ -23,20 +22,17 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
   const [notes, setNotes] = useState("");
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [previewOrderNumber] = useState<number>(() => peekNextLocalOrderNumber());
 
-  const whatsappMessageLines = [
-    "Olá, Menina Mulher Lingerie! Gostaria de fazer o pedido:",
-    ...items.map(
-      (item) =>
-        `- ${item.quantity}x ${item.name} (${item.color}, Tam ${item.size}) - ${formatBRL(
-          item.unitPrice * item.quantity
-        )}`
-    ),
-    "Forma de envio: A definir no WhatsApp",
-    customerName.trim() ? `Cliente: ${customerName.trim()}` : null,
-    notes.trim() ? `Obs: ${notes.trim()}` : null,
-    `Total: ${formatBRL(totalAmount)}`,
-  ].filter(Boolean);
+  const orderTag = formatOrderNumberTag(previewOrderNumber);
+  const whatsappMessageLines = buildWhatsAppOrderMessageLines({
+    orderNumber: previewOrderNumber,
+    items,
+    totalCount,
+    totalAmount,
+    customerName,
+    notes,
+  });
 
   const countLabel = totalCount === 1 ? "1 item selecionado" : `${totalCount} itens selecionados`;
 
@@ -165,11 +161,11 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
                       <div className="text-right">
                         {item.quantity > 1 && (
                           <span className="text-[11px] text-brand-muted block">
-                            {item.quantity}x {formatBRL(item.unitPrice)}
+                            {item.quantity}x {formatOrderCurrencyBRL(item.unitPrice)}
                           </span>
                         )}
                         <span className="font-editorial text-lg font-bold text-brand-plum">
-                          {formatBRL(item.unitPrice * item.quantity)}
+                          {formatOrderCurrencyBRL(item.unitPrice * item.quantity)}
                         </span>
                       </div>
                     </div>
@@ -191,7 +187,7 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
                 <span className="text-brand-muted">
                   Subtotal ({totalCount} {totalCount === 1 ? "peça" : "peças"})
                 </span>
-                <strong className="text-text-primary">{formatBRL(totalAmount)}</strong>
+                <strong className="text-text-primary">{formatOrderCurrencyBRL(totalAmount)}</strong>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-brand-muted">Envio & Entrega</span>
@@ -201,7 +197,7 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
               <div className="pt-3 border-t border-brand-border flex items-baseline justify-between">
                 <span className="text-sm font-bold text-brand-plum">Total estimado</span>
                 <span className="font-editorial text-2xl font-bold text-brand-primary">
-                  {formatBRL(totalAmount)}
+                  {formatOrderCurrencyBRL(totalAmount)}
                 </span>
               </div>
             </div>
@@ -222,15 +218,26 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
               />
             </div>
 
-            {/* Prévia da Mensagem do WhatsApp (RF08, RF09) */}
+            {/* Prévia da Mensagem do WhatsApp (PBI #24 — RF08, RF09, US06, US08) */}
             <div className="bg-status-success-bg/50 border border-status-success/25 rounded-xl p-3.5 space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-status-success">
                   💬 PRÉVIA DA MENSAGEM DO WHATSAPP
                 </span>
-                <Badge variant="available">Automática</Badge>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    data-testid="whatsapp-order-number"
+                    className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-surface text-brand-plum border border-brand-border"
+                  >
+                    Pedido {orderTag}
+                  </span>
+                  <Badge variant="available">Automática</Badge>
+                </div>
               </div>
-              <pre className="text-xs text-text-primary whitespace-pre-wrap font-sans leading-relaxed">
+              <pre
+                data-testid="whatsapp-order-preview"
+                className="text-xs text-text-primary whitespace-pre-wrap font-sans leading-relaxed"
+              >
                 {whatsappMessageLines.join("\n")}
               </pre>
             </div>
