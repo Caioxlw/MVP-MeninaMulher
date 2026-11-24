@@ -35,8 +35,11 @@ import { AdminStockScreen } from "../pages/admin/AdminStockScreen";
 import { StoreBagScreen } from "../pages/store/StoreBagScreen";
 import { StoreProductDetailScreen } from "../pages/store/StoreProductDetailScreen";
 import {
+  DEFAULT_CATALOG_CATEGORY_NAMES,
   fetchPublicProducts,
   mapCatalogProductToFavorite,
+  matchesCatalogCategoryFilter,
+  resolveCategoryLabelFromSlug,
   type CatalogProductItem,
 } from "../services/catalogApi";
 import {
@@ -248,7 +251,7 @@ function StoreHomeScreen({ descriptor }: { descriptor: RouteDescriptor }) {
     const matchesSearch =
       !query || p.name.toLowerCase().includes(query) || p.subtitle.toLowerCase().includes(query);
     const matchesCategory =
-      selectedCategory === "Todos" || p.category.toLowerCase() === selectedCategory.toLowerCase();
+      selectedCategory === "Todos" || matchesCatalogCategoryFilter(p, selectedCategory);
     return matchesSearch && matchesCategory;
   });
 
@@ -561,6 +564,10 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState<number>(0);
+  const [manualCategory, setManualCategory] = useState<{
+    routeSlug: string | undefined;
+    category: string;
+  } | null>(null);
   const [selectedColor, setSelectedColor] = useState("Todas");
   const [selectedSize, setSelectedSize] = useState("Todos");
   const [searchQuery, setSearchQuery] = useState("");
@@ -595,15 +602,22 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
     setReloadKey((k) => k + 1);
   };
 
-  const slugMap: Record<string, string> = {
-    "partes-de-cima": "Partes de Cima",
-    "partes-de-baixo": "Partes de Baixo",
-    conjuntos: "Conjuntos",
-    sutias: "Sutiãs",
-    calcinhas: "Calcinhas",
-    "pijamas-baby-doll": "Pijamas & Baby Doll",
-  };
-  const categoryFilterName = params.slug ? (slugMap[params.slug] ?? params.slug) : null;
+  const routeCategoryLabel = resolveCategoryLabelFromSlug(params.slug);
+  const selectedCategory =
+    manualCategory && manualCategory.routeSlug === params.slug
+      ? manualCategory.category
+      : (routeCategoryLabel ?? "Todas");
+
+  const categoryFilterName = selectedCategory === "Todas" ? null : selectedCategory;
+
+  const availableCategories = Array.from(
+    new Set([
+      "Todas",
+      ...(routeCategoryLabel ? [routeCategoryLabel] : []),
+      ...DEFAULT_CATALOG_CATEGORY_NAMES,
+      ...catalogProducts.map((p) => p.category),
+    ])
+  );
 
   const availableColors =
     catalogProducts.length > 0
@@ -616,11 +630,7 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
       : ["Todos", "P", "M", "G", "GG"];
 
   const filteredProducts = catalogProducts.filter((p) => {
-    const matchesCategory =
-      !params.slug ||
-      p.categorySlug?.toLowerCase() === params.slug.toLowerCase() ||
-      (categoryFilterName !== null &&
-        p.category.toLowerCase() === categoryFilterName.toLowerCase());
+    const matchesCategory = matchesCatalogCategoryFilter(p, selectedCategory);
     const matchesColor = selectedColor === "Todas" || p.colorNames.includes(selectedColor);
     const matchesSize = selectedSize === "Todos" || p.sizes.includes(selectedSize);
     const query = searchQuery.trim().toLowerCase();
@@ -664,6 +674,40 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
               leftIcon={<Search className="w-4 h-4" />}
             />
           </div>
+        </div>
+
+        {/* Pílulas de Categoria (PBI #38 / Task #233 — RF03, US02) */}
+        <div
+          data-testid="catalog-category-pills"
+          aria-label="Filtrar catálogo por categoria"
+          className="pt-4 border-t border-brand-border flex flex-wrap items-center gap-2"
+        >
+          <span className="text-xs font-bold uppercase tracking-wider text-brand-muted mr-1">
+            CATEGORIA:
+          </span>
+          {availableCategories.map((categoryName) => {
+            const isActive = selectedCategory.toLowerCase() === categoryName.toLowerCase();
+            return (
+              <button
+                key={categoryName}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() =>
+                  setManualCategory({
+                    routeSlug: params.slug,
+                    category: categoryName,
+                  })
+                }
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                  isActive
+                    ? "bg-brand-primary text-white shadow-xs"
+                    : "bg-brand-soft text-text-primary hover:bg-brand-blush/50"
+                }`}
+              >
+                {categoryName}
+              </button>
+            );
+          })}
         </div>
 
         {/* Filtros de Cor e Tamanho (conforme protótipo C04 Categoria) */}
@@ -756,9 +800,13 @@ function StoreCatalogScreen({ descriptor }: { descriptor: RouteDescriptor }) {
       ) : (
         <EmptyState
           title="Nenhuma peça encontrada com esses filtros"
-          description="Tente selecionar outra cor ou tamanho para ver mais opções da coleção."
+          description="Tente selecionar outra categoria, cor ou tamanho para ver mais opções da coleção."
           actionLabel="Limpar Filtros"
           onAction={() => {
+            setManualCategory({
+              routeSlug: params.slug,
+              category: "Todas",
+            });
             setSelectedColor("Todas");
             setSelectedSize("Todos");
             setSearchQuery("");
