@@ -1,4 +1,5 @@
 import type { ProductStockStatus } from "../components/ui/ProductCard";
+import type { FavoriteItem } from "../types/cart";
 import { resolveProductOverallAvailability, type StoreProductVariant } from "./availability";
 import { resolveColorHex } from "./stockApi";
 
@@ -72,6 +73,194 @@ export interface PublicProductDetailResult {
   status: "ok" | "not_found" | "error";
   product: CatalogProductItem | null;
   errorMessage?: string;
+}
+
+export const DEFAULT_CATALOG_CATEGORY_NAMES: readonly string[] = [
+  "Conjuntos",
+  "Sutiãs",
+  "Calcinhas",
+  "Pijamas & Baby Doll",
+];
+
+/**
+ * Mapeamento canônico de slugs de rota (`/categoria/:slug`) para rótulos amigáveis exibidos
+ * no cabeçalho do catálogo e nos filtros (`PBI #38` / `Task #233` — `RF03`, `US02`).
+ * Compatível tanto com as categorias do seed quanto com as 9 categorias definidas pela empresária.
+ */
+export const CATALOG_CATEGORY_SLUG_LABELS: Record<string, string> = {
+  "partes-de-cima": "Partes de Cima",
+  "partes-de-baixo": "Partes de Baixo",
+  conjuntos: "Conjuntos",
+  sutias: "Sutiãs",
+  calcinhas: "Calcinhas",
+  "pijamas-baby-doll": "Pijamas & Baby Doll",
+  "conjunto-lingerie-com-bojo": "Conjunto lingerie com bojo",
+  "conjunto-lingerie-sem-bojo": "Conjunto lingerie sem bojo",
+  "baby-doll": "Baby Doll",
+  "conjuntos-ousados": "Conjuntos ousados",
+  "calcinhas-tradicionais-semi-fio-duplo": "Calcinhas tradicionais, semi, fio duplo",
+  "conjunto-plus": "Conjunto plus (46,48,50 e 52)",
+  "conjunto-plus-46-48-50-e-52": "Conjunto plus (46,48,50 e 52)",
+  "baby-doll-plus": "Baby Doll Plus",
+  "conjuntos-ousados-plus": "Conjuntos ousados plus",
+  "sex-shop": "Sex Shop",
+};
+
+/**
+ * Normaliza texto removendo acentos e caracteres especiais para comparação e geração de slug.
+ */
+export function normalizeCategoryToken(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Resolve o nome de exibição amigável a partir de um slug de rota `/categoria/:slug`.
+ */
+export function resolveCategoryLabelFromSlug(slug?: string | null): string | null {
+  if (!slug || !slug.trim()) {
+    return null;
+  }
+  const cleanSlug = slug.trim().toLowerCase();
+  return (
+    CATALOG_CATEGORY_SLUG_LABELS[cleanSlug] ??
+    CATALOG_CATEGORY_SLUG_LABELS[normalizeCategoryToken(cleanSlug)] ??
+    slug.trim()
+  );
+}
+
+const TOPS_CATEGORY_TOKENS = new Set([
+  "partes-de-cima",
+  "sutias",
+  "sutia",
+  "tops",
+  "top",
+  "bodies",
+  "body",
+]);
+
+const BOTTOMS_CATEGORY_TOKENS = new Set([
+  "partes-de-baixo",
+  "calcinhas",
+  "calcinha",
+  "calcinhas-tradicionais-semi-fio-duplo",
+]);
+
+const SETS_CATEGORY_TOKENS = new Set([
+  "conjuntos",
+  "conjunto",
+  "conjunto-lingerie-com-bojo",
+  "conjunto-lingerie-sem-bojo",
+  "conjuntos-ousados",
+  "conjunto-plus",
+  "conjunto-plus-46-48-50-e-52",
+  "conjuntos-ousados-plus",
+]);
+
+const SLEEPWEAR_CATEGORY_TOKENS = new Set([
+  "pijamas-baby-doll",
+  "pijamas-e-baby-doll",
+  "baby-doll",
+  "baby-doll-plus",
+]);
+
+/**
+ * Verifica se um produto do catálogo corresponde ao filtro de categoria selecionado
+ * (seja uma categoria direta da API, uma das 9 categorias da empresária ou um agrupamento
+ * de menu como `Partes de Cima`, `Partes de Baixo` ou `Conjuntos` — `PBI #38` / `Task #233`).
+ */
+export function matchesCatalogCategoryFilter(
+  product: Pick<CatalogProductItem, "category" | "categorySlug">,
+  filterValue?: string | null
+): boolean {
+  if (!filterValue || !filterValue.trim()) {
+    return true;
+  }
+
+  const normalizedFilter = normalizeCategoryToken(filterValue);
+  if (normalizedFilter === "todas" || normalizedFilter === "todos") {
+    return true;
+  }
+
+  const productCategoryToken = normalizeCategoryToken(product.category || "");
+  const productSlugToken = normalizeCategoryToken(product.categorySlug || "");
+
+  if (productCategoryToken === normalizedFilter || productSlugToken === normalizedFilter) {
+    return true;
+  }
+
+  if (normalizedFilter === "partes-de-cima") {
+    return (
+      TOPS_CATEGORY_TOKENS.has(productCategoryToken) ||
+      TOPS_CATEGORY_TOKENS.has(productSlugToken) ||
+      productCategoryToken.includes("sutia") ||
+      productCategoryToken.includes("top") ||
+      productCategoryToken.includes("body")
+    );
+  }
+
+  if (normalizedFilter === "partes-de-baixo") {
+    return (
+      BOTTOMS_CATEGORY_TOKENS.has(productCategoryToken) ||
+      BOTTOMS_CATEGORY_TOKENS.has(productSlugToken) ||
+      productCategoryToken.includes("calcinha")
+    );
+  }
+
+  if (normalizedFilter === "conjuntos") {
+    return (
+      SETS_CATEGORY_TOKENS.has(productCategoryToken) ||
+      SETS_CATEGORY_TOKENS.has(productSlugToken) ||
+      productCategoryToken.startsWith("conjunto")
+    );
+  }
+
+  if (normalizedFilter === "pijamas-baby-doll" || normalizedFilter === "baby-doll") {
+    return (
+      SLEEPWEAR_CATEGORY_TOKENS.has(productCategoryToken) ||
+      SLEEPWEAR_CATEGORY_TOKENS.has(productSlugToken) ||
+      productCategoryToken.includes("baby-doll") ||
+      productCategoryToken.includes("pijama")
+    );
+  }
+
+  return false;
+}
+
+/**
+ * Busca a lista de categorias públicas em `GET /api/categories` (`RF03`, `US02`).
+ */
+export async function fetchPublicCategories(): Promise<ApiCategoryDto[]> {
+  const response = await fetch("/api/categories");
+  if (!response.ok) {
+    throw new Error("Não foi possível carregar as categorias do catálogo.");
+  }
+
+  const data: unknown = await response.json();
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return (data as ApiCategoryDto[])
+    .filter(
+      (cat) =>
+        cat &&
+        typeof cat.id === "string" &&
+        typeof cat.name === "string" &&
+        cat.name.trim().length > 0
+    )
+    .map((cat) => ({
+      id: cat.id,
+      name: cat.name.trim(),
+      slug:
+        typeof cat.slug === "string" && cat.slug.trim().length > 0
+          ? cat.slug.trim()
+          : normalizeCategoryToken(cat.name),
+    }));
 }
 
 /**
@@ -325,6 +514,32 @@ export async function fetchPublicProductDetail(
       errorMessage: "Não foi possível conectar ao servidor para carregar os detalhes do produto.",
     };
   }
+}
+
+/**
+ * Converte um produto do catálogo público para o formato persistido em Favoritos (`PBI #23` / `#217`).
+ * Inclui automaticamente a primeira variação em estoque (quando existir) para suportar
+ * transferência direta para a sacola.
+ */
+export function mapCatalogProductToFavorite(product: CatalogProductItem): FavoriteItem {
+  const defaultVariant = product.variants.find((variant) => variant.stock > 0);
+
+  return {
+    productId: product.id,
+    name: product.name,
+    category: product.category,
+    price: product.price,
+    imageUrl: product.imageUrl,
+    imageAlt: product.imageAlt,
+    ...(defaultVariant
+      ? {
+          variantId: defaultVariant.id,
+          color: defaultVariant.color,
+          colorHex: defaultVariant.colorHex,
+          size: defaultVariant.size,
+        }
+      : {}),
+  };
 }
 
 /**

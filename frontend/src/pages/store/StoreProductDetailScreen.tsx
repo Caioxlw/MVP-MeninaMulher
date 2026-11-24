@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Alert, Badge, Button, EmptyState, type ProductStockStatus } from "../../components/ui";
+import { useCart } from "../../contexts/StoreContext";
 import { ROUTES, type RouteDescriptor } from "../../routes/routes.config";
 import {
   fetchStoreProductVariants,
@@ -61,6 +62,7 @@ export function StoreProductDetailScreen({
 }) {
   const params = useParams();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
   const [apiDetailMap, setApiDetailMap] = useState<Record<string, PublicProductDetailResult>>({});
   const [apiVariantsMap, setApiVariantsMap] = useState<Record<string, StoreProductVariant[]>>({});
   const [activeImageState, setActiveImageState] = useState<{ productId: string; index: number }>({
@@ -169,6 +171,8 @@ export function StoreProductDetailScreen({
     ? selectedSize
     : firstAvailableSize;
 
+  const activeColorOption =
+    colorOptions.find((c) => c.color === effectiveColor) ?? colorOptions[0] ?? null;
   const activeSizeOption =
     sizeOptions.find((s) => s.size === effectiveSize) ?? sizeOptions[0] ?? null;
   const canAddToBag = Boolean(activeSizeOption && activeSizeOption.availability.available);
@@ -256,7 +260,24 @@ export function StoreProductDetailScreen({
   };
 
   const handleAddToBag = () => {
-    if (!canAddToBag) return;
+    if (!canAddToBag || !activeSizeOption || effectiveQty <= 0) return;
+
+    addToCart(
+      {
+        productId: product.id,
+        variantId: activeSizeOption.id,
+        name: product.name,
+        category: product.category,
+        color: effectiveColor,
+        colorHex: activeColorOption?.colorHex ?? "#23101B",
+        size: effectiveSize,
+        unitPrice: product.price,
+        imageUrl: activeImage?.url ?? product.imageUrl,
+        imageAlt: activeImage?.altText ?? product.imageAlt ?? product.name,
+      },
+      effectiveQty
+    );
+
     setAddedFeedback(true);
   };
 
@@ -588,7 +609,10 @@ export function StoreProductDetailScreen({
                 type="button"
                 aria-label="Diminuir quantidade"
                 disabled={!canAddToBag || effectiveQty <= 1}
-                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                onClick={() => {
+                  setAddedFeedback(false);
+                  setQty((q) => Math.max(1, q - 1));
+                }}
                 className="min-w-11 min-h-11 rounded-lg text-brand-plum hover:bg-brand-surface disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center cursor-pointer"
               >
                 <Minus className="w-4 h-4" />
@@ -603,7 +627,10 @@ export function StoreProductDetailScreen({
                 type="button"
                 aria-label="Aumentar quantidade"
                 disabled={!canAddToBag || effectiveQty >= maxSelectableQty}
-                onClick={() => setQty((q) => Math.min(maxSelectableQty, q + 1))}
+                onClick={() => {
+                  setAddedFeedback(false);
+                  setQty((q) => Math.min(maxSelectableQty, q + 1));
+                }}
                 className="min-w-11 min-h-11 rounded-lg text-brand-plum hover:bg-brand-surface disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center cursor-pointer"
               >
                 <Plus className="w-4 h-4" />

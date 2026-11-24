@@ -146,6 +146,14 @@ JWT_SECRET="troque-este-segredo-jwt-em-producao"
 DATABASE_URL="postgresql://postgres:SUA_SENHA@localhost:5432/mvp_menina_mulher?schema=public"
 ```
 
+Para testar o redirecionamento de pedidos da Sacola para o seu próprio WhatsApp localmente (sem enviar seu número pessoal em commits para o repositório), crie um arquivo `frontend/.env.local` (ignorado pelo Git) com a variável `VITE_STORE_WHATSAPP_NUMBER`:
+
+```env
+VITE_STORE_WHATSAPP_NUMBER=5511987654321
+```
+
+> ⚠️ **Lembrete Importante (WhatsApp da Loja):** Por padrão, o código versionado utiliza um número fictício de demonstração (`5511987654321`) para evitar o envio de mensagens de teste para números reais durante o desenvolvimento da equipe. **Lembre-se de trocar/configurar `VITE_STORE_WHATSAPP_NUMBER` com o número oficial da loja Menina Mulher antes da homologação final e entrega em produção (`PBI #27` / `PBI #36`).**
+
 Em seguida, aplique as migrações iniciais do Prisma:
 
 ```bash
