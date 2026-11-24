@@ -2,6 +2,7 @@ import type { CartItem } from "../types/cart";
 
 export const ORDER_NUMBER_STORAGE_KEY = "menina-mulher:last-order-number";
 export const INITIAL_ORDER_NUMBER = 1001;
+export const DEFAULT_STORE_WHATSAPP_NUMBER = "5511987654321";
 
 export interface WhatsAppOrderMessageInput {
   orderNumber?: number | string;
@@ -13,9 +14,47 @@ export interface WhatsAppOrderMessageInput {
   shippingLabel?: string;
 }
 
+export interface WhatsAppCheckoutUrlInput extends WhatsAppOrderMessageInput {
+  phone?: string | null;
+}
+
 export interface CheckoutOrderNumberResult {
   orderNumber: number;
   source: "api" | "local";
+}
+
+/**
+ * Sanitiza um número de telefone para o padrão internacional do WhatsApp (`wa.me`),
+ * mantendo apenas dígitos e prefixando `55` quando informado apenas DDD + número (10 ou 11 dígitos).
+ */
+export function sanitizeWhatsAppPhone(rawPhone?: string | null): string {
+  if (!rawPhone || typeof rawPhone !== "string") {
+    return "";
+  }
+  const digits = rawPhone.replace(/\D+/g, "");
+  if (digits.length === 10 || digits.length === 11) {
+    return `55${digits}`;
+  }
+  return digits.length >= 12 ? digits : "";
+}
+
+/**
+ * Resolve o número de WhatsApp da loja a partir de um override explícito, da variável
+ * de ambiente `VITE_STORE_WHATSAPP_NUMBER` (em desenvolvimento/produção) ou do fallback padrão.
+ */
+export function resolveStoreWhatsAppNumber(overridePhone?: string | null): string {
+  const sanitizedOverride = sanitizeWhatsAppPhone(overridePhone);
+  if (sanitizedOverride) {
+    return sanitizedOverride;
+  }
+
+  const envMode = import.meta.env?.MODE;
+  const rawEnvPhone =
+    envMode !== "test"
+      ? (import.meta.env?.VITE_STORE_WHATSAPP_NUMBER as string | undefined)
+      : undefined;
+  const sanitizedEnv = sanitizeWhatsAppPhone(rawEnvPhone);
+  return sanitizedEnv || DEFAULT_STORE_WHATSAPP_NUMBER;
 }
 
 /**
@@ -175,4 +214,14 @@ export function buildWhatsAppOrderMessageLines(input: WhatsAppOrderMessageInput)
  */
 export function buildWhatsAppOrderMessage(input: WhatsAppOrderMessageInput): string {
   return buildWhatsAppOrderMessageLines(input).join("\n");
+}
+
+/**
+ * Constrói a URL oficial de redirecionamento para o WhatsApp (`https://wa.me/<phone>?text=<encoded>`)
+ * com a mensagem padronizada do pedido pré-preenchida (`PBI #25` — `RF09`, `RNF03`, `US06`).
+ */
+export function buildWhatsAppCheckoutUrl(input: WhatsAppCheckoutUrlInput): string {
+  const phone = resolveStoreWhatsAppNumber(input.phone);
+  const message = buildWhatsAppOrderMessage(input);
+  return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }

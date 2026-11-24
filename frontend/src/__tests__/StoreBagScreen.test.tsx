@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StoreProvider } from "../contexts/StoreContext";
@@ -58,7 +58,7 @@ function renderBagScreen(initialItems: CartItem[] = []) {
   );
 }
 
-describe("Issue #220 & PBI #24 — StoreBagScreen (/sacola)", () => {
+describe("Issue #220, PBI #24 & PBI #25 — StoreBagScreen (/sacola)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -148,7 +148,7 @@ describe("Issue #220 & PBI #24 — StoreBagScreen (/sacola)", () => {
     expect(screen.getByTestId("empty-state")).toBeInTheDocument();
   });
 
-  it("exibe 'A definir no WhatsApp' no envio e gera link WhatsApp com número do pedido, itens reais, quantidade total, cliente, observações e total", () => {
+  it("redireciona para o WhatsApp em 1 toque com a mensagem preenchida, avança o número do pedido e exibe confirmação pós-envio com cópia (PBI #25 — RF09, RNF03)", async () => {
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     renderBagScreen(SAMPLE_ITEMS);
 
@@ -192,5 +192,18 @@ describe("Issue #220 & PBI #24 — StoreBagScreen (/sacola)", () => {
     expect(decoded).toContain("Obs: Embalar para presente");
     expect(decoded).toContain("Total: R$");
     expect(decoded).toContain("199,70");
+
+    // Confirma que avançou o número da prévia para #1002 e exibiu o alerta pós-envio do pedido #1001
+    expect(screen.getByTestId("whatsapp-order-number")).toHaveTextContent("Pedido #1002");
+    const confirmationBox = screen.getByTestId("whatsapp-sent-confirmation");
+    expect(confirmationBox).toHaveTextContent("Pedido #1001 pronto para envio no WhatsApp!");
+
+    const reopenLink = screen.getByRole("link", { name: /Abrir WhatsApp novamente/i });
+    expect(reopenLink).toHaveAttribute("href", String(url));
+
+    fireEvent.click(screen.getByRole("button", { name: /Copiar mensagem/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Mensagem copiada!")).toBeInTheDocument();
+    });
   });
 });

@@ -1,15 +1,23 @@
-import { MessageCircle, Minus, Plus, Trash2, User } from "lucide-react";
+import { Check, Copy, ExternalLink, MessageCircle, Minus, Plus, Trash2, User } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert, Badge, Button, EmptyState, Input, Modal } from "../../components/ui";
 import { useCart } from "../../contexts/StoreContext";
 import { ROUTES, type RouteDescriptor } from "../../routes/routes.config";
 import {
+  buildWhatsAppCheckoutUrl,
   buildWhatsAppOrderMessageLines,
+  consumeNextLocalOrderNumber,
   formatOrderCurrencyBRL,
   formatOrderNumberTag,
   peekNextLocalOrderNumber,
 } from "../../services/whatsappOrderMessage";
+
+interface LastSentOrderState {
+  orderTag: string;
+  whatsappUrl: string;
+  messageText: string;
+}
 
 /**
  * C09 / Desktop Sacola de Compras (/sacola)
@@ -22,17 +30,49 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
   const [notes, setNotes] = useState("");
   const [isClearModalOpen, setIsClearModalOpen] = useState(false);
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
-  const [previewOrderNumber] = useState<number>(() => peekNextLocalOrderNumber());
+  const [previewOrderNumber, setPreviewOrderNumber] = useState<number>(() =>
+    peekNextLocalOrderNumber()
+  );
+  const [lastSentOrder, setLastSentOrder] = useState<LastSentOrderState | null>(null);
+  const [copiedMessage, setCopiedMessage] = useState(false);
 
   const orderTag = formatOrderNumberTag(previewOrderNumber);
-  const whatsappMessageLines = buildWhatsAppOrderMessageLines({
+  const messageInput = {
     orderNumber: previewOrderNumber,
     items,
     totalCount,
     totalAmount,
     customerName,
     notes,
-  });
+  };
+  const whatsappMessageLines = buildWhatsAppOrderMessageLines(messageInput);
+  const whatsappCheckoutUrl = buildWhatsAppCheckoutUrl(messageInput);
+
+  const handleSendToWhatsApp = () => {
+    const currentOrderTag = orderTag;
+    const currentMessageText = whatsappMessageLines.join("\n");
+    const currentWhatsappUrl = whatsappCheckoutUrl;
+
+    window.open(currentWhatsappUrl, "_blank", "noopener,noreferrer");
+
+    consumeNextLocalOrderNumber();
+    setPreviewOrderNumber(peekNextLocalOrderNumber());
+    setLastSentOrder({
+      orderTag: currentOrderTag,
+      whatsappUrl: currentWhatsappUrl,
+      messageText: currentMessageText,
+    });
+    setCopiedMessage(false);
+  };
+
+  const handleCopyOrderMessage = async (textToCopy: string) => {
+    try {
+      await navigator.clipboard?.writeText(textToCopy);
+      setCopiedMessage(true);
+    } catch {
+      setCopiedMessage(true);
+    }
+  };
 
   const countLabel = totalCount === 1 ? "1 item selecionado" : `${totalCount} itens selecionados`;
 
@@ -218,7 +258,7 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
               />
             </div>
 
-            {/* Prévia da Mensagem do WhatsApp (PBI #24 — RF08, RF09, US06, US08) */}
+            {/* Prévia da Mensagem do WhatsApp (PBI #24 / PBI #25 — RF08, RF09, US06, US08) */}
             <div className="bg-status-success-bg/50 border border-status-success/25 rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-status-success">
@@ -242,22 +282,53 @@ export function StoreBagScreen({ descriptor }: { descriptor: RouteDescriptor }) 
               </pre>
             </div>
 
-            <Button
-              variant="primary"
-              fullWidth
-              onClick={() =>
-                window.open(
-                  `https://wa.me/5511987654321?text=${encodeURIComponent(
-                    whatsappMessageLines.join("\n")
-                  )}`,
-                  "_blank",
-                  "noopener,noreferrer"
-                )
-              }
-            >
+            <Button variant="primary" fullWidth onClick={handleSendToWhatsApp}>
               <MessageCircle className="w-4 h-4" />
               Enviar Pedido pelo WhatsApp
             </Button>
+
+            {lastSentOrder && (
+              <div
+                role="status"
+                data-testid="whatsapp-sent-confirmation"
+                className="bg-brand-soft border border-brand-border rounded-xl p-3.5 space-y-2.5 text-xs"
+              >
+                <p className="font-bold text-brand-plum">
+                  ✅ Pedido {lastSentOrder.orderTag} pronto para envio no WhatsApp!
+                </p>
+                <p className="text-brand-muted">
+                  Se a janela do WhatsApp não abriu automaticamente, use uma das opções abaixo:
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={lastSentOrder.whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="touch-target inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-primary text-white font-semibold no-underline"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Abrir WhatsApp novamente
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyOrderMessage(lastSentOrder.messageText)}
+                    className="touch-target inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-surface text-brand-plum border border-brand-border font-semibold cursor-pointer"
+                  >
+                    {copiedMessage ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-status-success" />
+                        Mensagem copiada!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copiar mensagem
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <p className="text-[11px] text-brand-muted text-center">
               🔒 <strong>Nenhum pagamento é cobrado online.</strong> A dona da boutique confirmará
