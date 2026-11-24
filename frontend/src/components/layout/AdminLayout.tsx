@@ -18,7 +18,7 @@ interface AdminNavSection {
   badge?: number;
 }
 
-export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutProps) {
+export function AdminLayout({ children, pendingOrdersCount = 0 }: AdminLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const session = getAdminSession();
@@ -160,8 +160,8 @@ export function AdminLayout({ children, pendingOrdersCount = 2 }: AdminLayoutPro
 
           {/* Avatar / Selo MM à Direita */}
           <div className="flex items-center gap-3">
-            <span className="md:hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brand-blush text-brand-plum">
-              <span className="w-2 h-2 rounded-full bg-brand-primary" />
+            <span className="md:hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brand-blush text-brand-plum whitespace-nowrap shrink-0">
+              <span className="w-2 h-2 rounded-full bg-status-success" />
               Boutique Aberta
             </span>
             <div className="flex items-center gap-2.5">
